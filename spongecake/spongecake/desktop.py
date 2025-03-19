@@ -169,7 +169,7 @@ class Desktop:
         if scroll_y != 0:
             button = 4 if scroll_y < 0 else 5
             clicks = int(abs(scroll_y)/100)
-            for _ in range(clicks):
+            for _ in range(4):
                 scroll_cmd = f"export DISPLAY={self.display} && xdotool click {button}"
                 self.exec(scroll_cmd)
 
@@ -177,7 +177,7 @@ class Desktop:
         if scroll_x != 0:
             button = 6 if scroll_x < 0 else 7
             clicks = int(abs(scroll_x)/100)
-            for _ in range(clicks):
+            for _ in range(4):
                 scroll_cmd = f"export DISPLAY={self.display} && xdotool click {button}"
                 self.exec(scroll_cmd)
 
@@ -560,6 +560,34 @@ class Desktop:
 
         return result
 
+    def auto_generate_input(self, question: str, action_input: str) -> str:
+        """Generate an automated response to agent questions using OpenAI.
+        
+        Args:
+            question: The question asked by the agent
+            action_input: The original action input that led to this interaction
+            
+        Returns:
+            str: An appropriate response to the agent's question
+        """
+        try:
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant generating responses to questions in the context of desktop automation tasks. Keep responses concise and direct."},
+                {"role": "user", "content": f"Original task: {action_input}\nAgent question: {question}\nPlease provide a suitable response to help complete this task."}
+            ]
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                max_tokens=100,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Error generating automated response: {str(e)}")
+            return "continue"
+            
     def extract_and_print_safety_checks(self, result):
         checks = result.get("safety_checks") or []
         for check in checks:
@@ -569,7 +597,7 @@ class Desktop:
                 print(f"Pending Safety Check: {check.message}")
         return checks
 
-    def handle_action(self, action_input, stored_response=None, user_input=None):
+    def handle_action(self, action_input, stored_response=None, user_input=None, ignore_safety_and_input=False):
         """
         Demo function to call and manage `action` loop and responses
         
@@ -599,36 +627,59 @@ class Desktop:
 
             # If the agent is asking for text input, handle that
             if needs_input:
-                for msg in needs_input:
-                    if hasattr(msg, "content"):
-                        text_parts = [part.text for part in msg.content if hasattr(part, "text")]
-                        print(f"Agent asks: {' '.join(text_parts)}")
+                if ignore_safety_and_input:
+                    # Extract the question from needs_input
+                    question = ""
+                    for msg in needs_input:
+                        if hasattr(msg, "content"):
+                            text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+                            question = ' '.join(text_parts)
+                    
+                    print(f"Agent asks: {question}")
+                    print("Auto-generating response using OpenAI...")
+                    
+                    # Generate response using OpenAI
+                    auto_response = self.auto_generate_input(question, action_input)
+                    print(f"Auto-generated response: {auto_response}")
+                    
+                    result = self.action(input=result["result"], user_input=auto_response, safety_checks=safety_checks)
+                    continue
+                else:
+                    for msg in needs_input:
+                        if hasattr(msg, "content"):
+                            text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+                            print(f"Agent asks: {' '.join(text_parts)}")
 
-                user_says = input("Enter your response (or 'exit'/'quit'): ").strip().lower()
-                if user_says in ("exit", "quit"):
-                    print("Exiting as per user request.")
-                    return result
+                    user_says = input("Enter your response (or 'exit'/'quit'): ").strip().lower()
+                    if user_says in ("exit", "quit"):
+                        print("Exiting as per user request.")
+                        return result
 
-                # Call .action again with the user text, plus the previously extracted checks
-                # They may or may not matter if there are no pending calls
-                result = self.action(input=result["result"], user_input=user_says, safety_checks=safety_checks)
-                continue
+                    # Call .action again with the user text, plus the previously extracted checks
+                    # They may or may not matter if there are no pending calls
+                    result = self.action(input=result["result"], user_input=user_says, safety_checks=safety_checks)
+                    continue
 
-            # If there's a pending call with checks, the user must acknowledge them
+            # If there's a pending call with checks, either get user acknowledgment or auto-proceed if ignore_safety_checks is True
             if pending_call and safety_checks:
-                print(
-                    "Please acknowledge the safety check(s) in order to proceed with the computer call."
-                )
-                ack = input("Type 'ack' to confirm, or 'exit'/'quit': ").strip().lower()
-                if ack in ("exit", "quit"):
-                    print("Exiting as per user request.")
-                    return result
-                if ack == "ack":
-                    print("Acknowledged. Proceeding with the computer call...")
-                    # We call 'action' again with the pending_call
-                    # and pass along the same safety_checks to mark them as acknowledged
+                if ignore_safety_and_input:
+                    print("Safety checks ignored. Automatically proceeding with the computer call...")
                     result = self.action(input=result["result"], pending_call=pending_call, safety_checks=safety_checks)
                     continue
+                else:
+                    print(
+                        "Please acknowledge the safety check(s) in order to proceed with the computer call."
+                    )
+                    ack = input("Type 'ack' to confirm, or 'exit'/'quit': ").strip().lower()
+                    if ack in ("exit", "quit"):
+                        print("Exiting as per user request.")
+                        return result
+                    if ack == "ack":
+                        print("Acknowledged. Proceeding with the computer call...")
+                        # We call 'action' again with the pending_call
+                        # and pass along the same safety_checks to mark them as acknowledged
+                        result = self.action(input=result["result"], pending_call=pending_call, safety_checks=safety_checks)
+                        continue
 
             # If we reach here, no user input is needed & no pending call with checks
             # so presumably we are done
