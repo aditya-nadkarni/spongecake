@@ -453,7 +453,8 @@ The action function lets your agent perform tasks, manage conversations, and han
 The `action` function accepts:
 
 - **`input`**: A string command _or_ a previous result object (to keep the conversation going).  
-<br>
+<br>  
+
 **Used when the initial `action` command needs more input or security checks**:
 - **`user_input`**: Optional text from the user (if the agent asked for more info).  
 - **`safety_checks`**: A list of checks acknowledged by the user.  
