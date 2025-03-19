@@ -338,6 +338,8 @@ def get_screenshot(self) -> str:
 
 ### **`action(input=None, user_input=None, safety_checks=None, pending_call=None)`**
 
+ > Check out the [guide for using this function](#-guide-using-the-action-command) for more details
+
 ```python
 def action(self, input=None, user_input=None, safety_checks=None, pending_call=None) -> dict:
     """
@@ -439,6 +441,95 @@ Provides a simple, interactive loop for handling agent actions in the container 
    Repeats until no further input is required and no more calls are pending, returning the final result.
 
 Use this function in a console or interactive environment to easily step through the agent’s conversation flow.
+
+---
+
+## 🚀 Guide: Using the `action` Command
+
+The action function lets your agent perform tasks, manage conversations, and handle security checks in a flexible way. Whether you're building an interactive app or automating workflows behind the scenes. While many examples assume an interactive loop (where the user is asked for follow-up input and safety acknowledgments), you can structure it any way you like as long as you pass the right parameters back into `action`.
+
+### 📌 Quick Overview
+
+The `action` function accepts:
+
+- **`input`**: A string command _or_ a previous result object (to keep the conversation going).  
+<br>
+**Used when the initial `action` command needs more input or security checks**:
+- **`user_input`**: Optional text from the user (if the agent asked for more info).  
+- **`safety_checks`**: A list of checks acknowledged by the user.  
+- **`pending_call`**: A “computer call” that was paused for safety checks and now needs execution.
+
+It returns a dictionary that may contain:
+
+- **`result`**: The agent’s output or partial response.  
+- **`needs_input`**: A list of messages if the agent requests user text.  
+- **`safety_checks`**: Any new safety checks the user must confirm.  
+- **`pending_call`**: A call that’s awaiting user acknowledgment before it can execute.
+
+
+### 🌀 Handling the Workflow (Interactive Example)
+
+Imagine you're building something interactive—a command-line app, a chatbot, or even a simple UI. Your workflow might look like this:
+
+1. **Start** by calling `action` with a user's command.
+2. **Check** the returned dictionary for:  
+   - `needs_input`: If present, the agent needs more input, collect that input from the user, then call `action` again.
+     > 📝 **Important**: In this case, pass the full previously returned `result` into the `input` parameter when continuing 
+
+   - `pending_call` + `safety_checks`: If both exist, confirm the checks and re-invoke `action` with `pending_call`.  
+3. **Repeat** until the dictionary has no further `needs_input` or `pending_call`.  
+
+Here’s a *short* pseudo-code example:
+
+```python
+result = agent.action(input="Open a file")
+
+while True:
+    if result.get("needs_input"):
+        # Gather user input (could be from any source!)
+        user_text = get_user_input_somehow()
+        result = agent.action(
+            input=result["result"], # Pass in the previously returned result object
+            user_input=user_text,
+            safety_checks=result.get("safety_checks")
+        )
+        continue
+    
+    if result.get("pending_call") and result.get("safety_checks"):
+        # Confirm checks, then proceed
+        confirm_safety_checks()
+        result = agent.action(
+            input=result["result"],
+            pending_call=result["pending_call"],
+            safety_checks=result["safety_checks"]
+        )
+        continue
+    
+    # Done if nothing else is needed
+    break
+
+print("Final result:", result["result"])
+```
+
+
+### 🤖 Automated (non-interactive) and Custom Workflows
+
+You don’t **have** to prompt the user directly. For instance:
+
+- You might store safety checks in a database or queue them for review.  
+- You could automatically approve certain checks if your use case allows it.  
+- You could read user input from a file or a GUI, rather than the console.
+
+Regardless of how you gather approvals or input, your code must **still** supply the correct parameters back to `action` whenever you’re ready to continue. The workflow remains the same: pass in any `user_input`, previously returned `safety_checks`, or `pending_call` so the agent knows how to proceed.
+
+
+### 4. Key Takeaways
+
+- **After safety checks:** always pass back any relevant `safety_checks` or `pending_call` when resuming.
+- **When agent needs input:** Handle `needs_input` by gathering user text (or any logic you choose), then call `action` again. Pass in the previously returned `result` object in the input argument.
+- **Stop** once there’s no more needed input or calls.  
+
+---
 
 # Appendix
 
