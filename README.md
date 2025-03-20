@@ -338,7 +338,7 @@ def get_screenshot(self) -> str:
 
 ### **`action(input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False, complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None)`**
 
----
+ > Check out the [guide for using this function](#-guide-using-the-action-command) for more details
 
 ### Purpose
 
@@ -407,8 +407,6 @@ Set `ignore_safety_and_input=True` for automatic handling of inputs and security
 
 Provide handler functions to automate status management, simplifying your code:
 
- > Check out the [guide for using this function](#-guide-using-the-action-command) for more details
-
 ```python
 agent.action(
     input_text="Open Chrome",
@@ -420,133 +418,255 @@ agent.action(
 ```
 
 ---
+## 🚀 Guide: Using the `action` Command
 
-### **`handle_action(action_input, stored_response=None, user_input=None)`**
+The `action` function lets your agent execute tasks in the desktop environment. It handles:
 
-```python
-def handle_action(self, action_input, stored_response=None, user_input=None):
-    """
-    Demo function to call and manage `action` loop and responses
-    
-    1) Call the desktop.action method to handle commands or continue interactions
-    2) Print out agent prompts and safety checks
-    3) If there's user input needed, prompt
-    4) If there's a pending computer call with safety checks, ask user for ack, then continue
-    5) Repeat until no further action is required
-    """
-```
+- **Starting a new conversation** with a command.
+- **Continuing a conversation** by supplying user input.
+- **Acknowledging safety checks** for a pending call.
+- **Auto-handling safety checks and input** if `ignore_safety_and_input=True`.
+- **Custom handler delegation** for each status.
 
-**Purpose**  
-Provides a simple, interactive loop for handling agent actions in the container environment. It repeatedly calls the `action` function, checks for agent prompts, requests user input when necessary, and manages safety checks or computer calls.
-
-**Arguments**:
-- **`action_input`** (str):  
-  Your initial command or prompt to send to the agent.
-- **`stored_response`** (object, optional):  
-  A previously stored agent response you can resume from, if available.
-- **`user_input`** (str, optional):  
-  Any immediate user input to continue a prior conversation.
-
-**How it works**:
-1. **Initial call**:  
-   Starts by calling `action` with the given `action_input` (or `stored_response`, if provided).
-2. **Event loop**:  
-   - Displays any messages the agent wants you to see (prompts or safety checks).  
-   - If the agent needs more user input (`needs_input`), it prompts you and re-calls `action`.  
-   - If there’s a pending computer call and safety checks to acknowledge, you can confirm them and proceed.  
-3. **Completion**:  
-   Repeats until no further input is required and no more calls are pending, returning the final result.
-
-Use this function in a console or interactive environment to easily step through the agent’s conversation flow.
+Internally, `action` manages state and either returns a `(status, data)` tuple for you to process or calls the appropriate handler if provided.
 
 ---
 
-## 🚀 Guide: Using the `action` Command
-
-The action function lets your agent perform tasks, manage conversations, and handle security checks in a flexible way. Whether you're building an interactive app or automating workflows behind the scenes. While many examples assume an interactive loop (where the user is asked for follow-up input and safety acknowledgments), you can structure it any way you like as long as you pass the right parameters back into `action`.
-
 ### 📌 Quick Overview
 
-The `action` function accepts:
+```python
+def action(
+    input_text=None,
+    acknowledged_safety_checks=False,
+    ignore_safety_and_input=False,
+    complete_handler=None,
+    needs_input_handler=None,
+    needs_safety_check_handler=None,
+    error_handler=None
+):
+    # ...
+```
 
-- **`input`**: A string command _or_ a previous result object (to keep the conversation going).  
-<br>  
+- **`input_text`** (str, optional):
+  - A new command to start a conversation.
+  - A user’s response if the agent has asked for more input.
+  - `None` if you’re just confirming safety checks.
 
-**Used when the initial `action` command needs more input or security checks**:
-- **`user_input`**: Optional text from the user (if the agent asked for more info).  
-- **`safety_checks`**: A list of checks acknowledged by the user.  
-- **`pending_call`**: A “computer call” that was paused for safety checks and now needs execution.
+- **`acknowledged_safety_checks`** (bool, optional):
+  - Indicates that the user has confirmed pending checks.
+  - Only relevant if a **NEEDS_SECURITY_CHECK** status was returned previously.
 
-It returns a dictionary that may contain:
+- **`ignore_safety_and_input`** (bool, optional):
+  - If `True`, the function automatically handles safety checks and input requests, requiring no user interaction.
 
-- **`result`**: The agent’s output or partial response.  
-- **`needs_input`**: A list of messages if the agent requests user text.  
-- **`safety_checks`**: Any new safety checks the user must confirm.  
-- **`pending_call`**: A call that’s awaiting user acknowledgment before it can execute.
+- **Handlers** (callables, optional):
+  - `complete_handler(data)`: Handles **COMPLETE**.
+  - `needs_input_handler(messages)`: Handles **NEEDS_INPUT**.
+  - `needs_safety_check_handler(checks, pending_call)`: Handles **NEEDS_SECURITY_CHECK**.
+  - `error_handler(error_message)`: Handles **ERROR**.
 
+**Return Value**:
+
+- **A tuple** `(status, data)`, where:
+  - **status** is one of:
+    - **COMPLETE**: The agent finished successfully.
+    - **ERROR**: An error occurred.
+    - **NEEDS_INPUT**: The agent needs more user input.
+    - **NEEDS_SECURITY_CHECK**: The agent needs confirmation for a risky action.
+  - **data**:
+    - **For COMPLETE**: The final response object.
+    - **For ERROR**: An error message.
+    - **For NEEDS_INPUT**: A list of messages asking for input.
+    - **For NEEDS_SECURITY_CHECK**: A list of safety checks and the pending call.
+
+When handlers are provided, `action` may not return a status in the usual way—it delegates behavior to those handlers.
+
+---
 
 ### 🌀 Handling the Workflow (Interactive Example)
 
-Imagine you're building something interactive—a command-line app, a chatbot, or even a simple UI. Your workflow might look like this:
+`action` covers multiple scenarios:
 
-1. **Start** by calling `action` with a user's command.
-2. **Check** the returned dictionary for:  
-   - `needs_input`: If present, the agent needs more input, collect that input from the user, then call `action` again.
-     > 📝 **Important**: In this case, pass the full previously returned `result` into the `input` parameter when continuing 
+1. **Starting a conversation** with `input_text` (e.g., a command: “Open Chrome”).
+2. **Continuing a conversation** by providing user input if the agent is waiting for it.
+3. **Acknowledging safety checks** with `acknowledged_safety_checks=True` if the agent flagged a security concern.
+4. **Auto-handling** if `ignore_safety_and_input=True`, which bypasses user checks.
 
-   - `pending_call` + `safety_checks`: If both exist, confirm the checks and re-invoke `action` with `pending_call`.  
-3. **Repeat** until the dictionary has no further `needs_input` or `pending_call`.  
+When you call `action`, you get `(status, data)` back (unless you use handlers). Use `status` to decide your next move:
 
-Here’s a *short* pseudo-code example:
+- **COMPLETE**:
+  - The task is done. `data` contains the final response.
+  - You can display or log it.
+
+- **ERROR**:
+  - `data` holds an error message explaining what went wrong.
+  - You can retry, log, or show it to the user.
+
+- **NEEDS_INPUT**:
+  - The agent requires more information. Use `data` (often a list of prompts) to know what it wants.
+  - Get input from the user, then call `action` again, **supplying that text in `input_text`**.
+
+- **NEEDS_SECURITY_CHECK**:
+  - The agent found a risky action. You must confirm it’s safe.
+  - Call `action` again with **`acknowledged_safety_checks=True`** to proceed.
+  - No extra `input_text` is required unless the agent specifically requests it.
+
+Here’s a straightforward example:
 
 ```python
-result = agent.action(input="Open a file")
+status, data = agent.action(input_text="Open Firefox")
 
-while True:
-    if result.get("needs_input"):
-        # Gather user input (could be from any source!)
-        user_text = get_user_input_somehow()
-        result = agent.action(
-            input=result["result"], # Pass in the previously returned result object
-            user_input=user_text,
-            safety_checks=result.get("safety_checks")
-        )
-        continue
-    
-    if result.get("pending_call") and result.get("safety_checks"):
-        # Confirm checks, then proceed
-        confirm_safety_checks()
-        result = agent.action(
-            input=result["result"],
-            pending_call=result["pending_call"],
-            safety_checks=result["safety_checks"]
-        )
-        continue
-    
-    # Done if nothing else is needed
-    break
-
-print("Final result:", result["result"])
+if status == AgentStatus.COMPLETE:
+    print("Done:", data)
+elif status == AgentStatus.ERROR:
+    print("Error:", data)
+elif status == AgentStatus.NEEDS_INPUT:
+    user_reply = input(f"Input needed: {data}")
+    agent.action(input_text=user_reply)
+elif status == AgentStatus.NEEDS_SECURITY_CHECK:
+    confirm = input(f"Security checks: {data['safety_checks']} Proceed? (y/N): ")
+    if confirm.lower() == "y":
+        agent.action(acknowledged_safety_checks=True)
+    else:
+        print("Action cancelled.")
 ```
 
+For a more robust loop-based approach:
 
-### 🤖 Automated (non-interactive) and Custom Workflows
+```python
+status, data = agent.action(input_text="Open a file")
 
-You don’t **have** to prompt the user directly. For instance:
+while status in [AgentStatus.NEEDS_INPUT, AgentStatus.NEEDS_SECURITY_CHECK]:
+    if status == AgentStatus.NEEDS_INPUT:
+        user_reply = input(f"Agent needs more info: {data}")
+        status, data = agent.action(input_text=user_reply)
+    elif status == AgentStatus.NEEDS_SECURITY_CHECK:
+        confirm = input(f"Security checks: {data['safety_checks']} Proceed? (y/N): ")
+        if confirm.lower() == "y":
+            status, data = agent.action(acknowledged_safety_checks=True)
+        else:
+            print("Action cancelled.")
+            break
 
-- You might store safety checks in a database or queue them for review.  
-- You could automatically approve certain checks if your use case allows it.  
-- You could read user input from a file or a GUI, rather than the console.
+if status == AgentStatus.COMPLETE:
+    print("Final result:", data)
+elif status == AgentStatus.ERROR:
+    print("Error:", data)
+```
 
-Regardless of how you gather approvals or input, your code must **still** supply the correct parameters back to `action` whenever you’re ready to continue. The workflow remains the same: pass in any `user_input`, previously returned `safety_checks`, or `pending_call` so the agent knows how to proceed.
+---
 
+### 🤖 Automated (Non-Interactive) Mode
+
+Set **`ignore_safety_and_input=True`** to:
+
+- Automatically approve safety checks.
+- Automatically generate responses to agent questions to continue with the prompt
+
+This is useful for:
+- Automated actions that must run without user interaction.
+- Headless or server-based scenarios.
+
+**CAUTION:** It is inherently risky because **you skip all manual confirmations and user input**. Ensure your applications and use cases are safe before using auto mode.
+
+Example:
+
+```python
+status, data = agent.action(
+    input_text="Open Chrome",
+    ignore_safety_and_input=True
+)
+
+if status == AgentStatus.COMPLETE:
+    print("Completed:", data)
+elif status == AgentStatus.ERROR:
+    print("Error:", data)
+```
+
+---
+
+### Examples Using Handlers
+
+You can avoid manual `if/else` checks by supplying **handlers** for each status. `action` will call them automatically:
+
+- **`complete_handler(data)`**: Called when the agent finishes.
+- **`needs_input_handler(messages)`**: Called if the agent wants more input.
+- **`needs_safety_check_handler(safety_checks, pending_call)`**: Called if the agent flags a safety check.
+- **`error_handler(error_message)`**: Called if something goes wrong.
+
+#### Why Handlers?
+- They allow **complex logic** in a more organized, modular style.
+- They help you **integrate** with other tools or services, since each status is handled by a dedicated function.
+- They reduce repeated conditional code in your main flow.
+
+Example:
+
+```python
+result = [None]  # a mutable container to store final output or None
+
+def complete_handler(data):
+    """COMPLETE -- handle final results"""
+    print("\n✅ Task completed successfully!")
+    result[0] = data
+
+def needs_input_handler(messages):
+    """NEEDS_INPUT -- prompt the user and return the response"""
+    for msg in messages:
+        if hasattr(msg, "content"):
+            text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+            print(f"\n💬 Agent asks: {' '.join(text_parts)}")
+
+    user_says = input("Enter your response (or 'exit'/'quit'): ").strip()
+    if user_says.lower() in ("exit", "quit"):
+        print("Exiting as per user request.")
+        result[0] = None
+        return None
+    return user_says
+
+def needs_safety_check_handler(safety_checks, pending_call):
+    """NEEDS_SAFETY_CHECK -- confirm or deny safety checks"""
+    for check in safety_checks:
+        if hasattr(check, "message"):
+            print(f"☢️  Pending Safety Check: {check.message}")
+
+    ack = input("Type 'ack' to confirm, or 'exit'/'quit': ").strip().lower()
+    if ack in ("exit", "quit"):
+        print("Exiting as per user request.")
+        result[0] = None
+        return False
+    if ack == "ack":
+        print("Acknowledged. Proceeding with the computer call...")
+        return True
+    return False
+
+def error_handler(error_message):
+    """ERROR -- print error and store None"""
+    print(f"😱 ERROR: {error_message}")
+    result[0] = None
+
+# Provide handlers to `action`:
+status, data = desktop.action(
+    input_text="Open Chrome",
+    complete_handler=complete_handler,
+    needs_input_handler=needs_input_handler,
+    needs_safety_check_handler=needs_safety_check_handler,
+    error_handler=error_handler
+)
+```
+
+When handlers are specified, `action` manages each status internally and continues until it hits **COMPLETE** or **ERROR** (unless you stop it prematurely).
+
+---
 
 ### 4. Key Takeaways
 
-- **After safety checks:** always pass back any relevant `safety_checks` or `pending_call` when resuming.
-- **When agent needs input:** Handle `needs_input` by gathering user text (or any logic you choose), then call `action` again. Pass in the previously returned `result` object in the input argument.
-- **Stop** once there’s no more needed input or calls.  
+1. **Scenarios**: Start new tasks, resume with user input, or confirm safety checks.
+2. **Statuses**: Always handle COMPLETE, ERROR, NEEDS_INPUT, NEEDS_SECURITY_CHECK.
+3. **Resuming**: Pass new input (`input_text`) or confirm checks (`acknowledged_safety_checks=True`) to continue.
+4. **Auto-mode**: `ignore_safety_and_input=True` is convenient but risky.
+5. **Handlers**: Offer a cleaner, more modular way to manage status-based logic.
 
+> For any additional questions, contact [founders@passage-team.com](mailto:founders@passage-team.com)
 ---
 
 # Appendix

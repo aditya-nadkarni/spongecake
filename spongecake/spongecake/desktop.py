@@ -350,19 +350,3 @@ class Desktop:
             needs_safety_check_handler=needs_safety_check_handler,
             error_handler=error_handler
         )
-        
-    def handle_action(self, action_input, stored_response=None, user_input=None):
-        """
-        Demo function to call and manage the agent's action loop and responses.
-        This is a convenience method that delegates to the agent's handle_action method.
-        
-        Args:
-            action_input: The input to send to the agent
-            stored_response: Optional stored response to continue from
-            user_input: Optional user input to continue with
-            
-        Returns:
-            The final result of the action
-        """
-        agent = self.get_agent()
-        return agent.handle_action(action_input, stored_response, user_input)
