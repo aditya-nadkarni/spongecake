@@ -304,7 +304,7 @@ class Desktop:
         if agent is not None:
             agent.set_desktop(self)
             
-    def action(self, input_text=None, acknowledged_safety_checks=False):
+    def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False):
         """
         Execute an action in the desktop environment. This method delegates to the agent's action method.
         
@@ -315,6 +315,8 @@ class Desktop:
                        - None if acknowledging safety checks
             acknowledged_safety_checks: Whether safety checks have been acknowledged
                                        (only relevant if there's a pending call)
+            ignore_safety_and_input: If True, automatically handle safety checks and input requests
+                                    without requiring user interaction
         
         Returns:
             Tuple of (status, data), where:
@@ -322,7 +324,7 @@ class Desktop:
             - data contains relevant information based on the status
         """
         agent = self.get_agent()
-        return agent.action(input_text, acknowledged_safety_checks)
+        return agent.action(input_text, acknowledged_safety_checks, ignore_safety_and_input)
         
     def handle_action(self, action_input, stored_response=None, user_input=None):
         """

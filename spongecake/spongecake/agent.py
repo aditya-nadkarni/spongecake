@@ -119,6 +119,114 @@ class Agent:
         except Exception as e:
             print(f"Error handling action {action}: {e}")
 
+    def _auto_generate_input(self, question: str, input_history=None) -> str:
+        """Generate an automated response to agent questions using OpenAI.
+        
+        Args:
+            question: The question asked by the agent
+            input_history: The history of user inputs for context
+            
+        Returns:
+            str: An appropriate response to the agent's question
+        """
+        try:
+            # Extract original task and conversation history
+            original_task = input_history[0].get('content', '') if input_history and len(input_history) > 0 else ''
+            
+            # Build conversation history
+            conversation_history = ""
+            if input_history and len(input_history) > 1:
+                for i, inp in enumerate(input_history[1:], 1):
+                    conversation_history += f"User input {i}: {inp.get('content', '')}\n"
+            
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant generating responses to questions in the context of desktop automation tasks. Keep responses concise and direct."},
+                {"role": "user", "content": f"Original task: {original_task}\nConversation history:\n{conversation_history}\nAgent question: {question}\nPlease provide a suitable response to help complete this task."}
+            ]
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                max_tokens=100,
+                temperature=0.7
+            )
+            
+            auto_response = response.choices[0].message.content.strip()
+            print(f"Auto-generated response: {auto_response}")
+            return auto_response
+        except Exception as e:
+            print(f"Error generating automated response: {str(e)}")
+            return "continue"
+
+    def _is_message_asking_for_input(self, message, input_history=None):
+        """
+        Determine if a message from the agent is asking for more input or providing a final answer.
+        Uses a lightweight GPT model to analyze the message content.
+        
+        Args:
+            message: The message object from the agent
+            input_history: Optional list of previous user inputs for context
+            
+        Returns:
+            bool: True if the message is asking for more input, False if it's a final answer
+        """
+        if not self.openai_client:
+            # If no OpenAI client is available, assume it needs input if it's a message
+            return True
+            
+        # Extract text from the message
+        message_text = ""
+        if hasattr(message, "content"):
+            text_parts = [part.text for part in message.content if hasattr(part, "text")]
+            message_text = " ".join(text_parts)
+        
+        # If message is empty, assume it doesn't need input
+        if not message_text.strip():
+            return False
+            
+        # Prepare context from input history if available
+        context = ""
+        if input_history and len(input_history) > 0:
+            last_inputs = input_history[-min(3, len(input_history)):]
+            context = "Previous user inputs:\n" + "\n".join([f"- {inp.get('content', '')}" for inp in last_inputs])
+        
+        # Create prompt for the model
+        prompt = f"""Analyze this message from an AI agent and determine if it's asking for more input (1) or providing a final answer (0).
+
+{context}
+
+Agent message: "{message_text}"
+
+Is this message asking for more input from the user?
+Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing final answer)."""
+        
+        try:
+            # Make a lightweight call to the model
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # Using a lightweight model
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1,  # We only need a single digit
+                temperature=0.0  # Deterministic response
+            )
+            
+            # Extract the response
+            result = response.choices[0].message.content.strip()
+            
+            # Parse the result
+            if "1" in result:
+                return True
+            elif "0" in result:
+                return False
+            else:
+                # If the model didn't return a clear 0 or 1, default to assuming input is needed
+                print(f"Warning: Unclear response from input detection model: {result}. Assuming input is needed.")
+                return True
+                
+        except Exception as e:
+            # If there's an error, default to assuming it needs input
+            print(f"Error determining if message needs input: {e}. Assuming input is needed.")
+            return True
+    
     def computer_use_loop(self, response):
         """
         Run the loop that executes computer actions until no 'computer_call' is found,
@@ -135,6 +243,7 @@ class Agent:
             - pending_call: if there's exactly one computer_call that was paused
                 due to safety checks, return that here so the caller can handle it
                 after the user acknowledges the checks.
+            - needs_input: boolean indicating if messages require more input
         """
         if self.desktop is None:
             raise ValueError("No desktop has been set for this agent.")
@@ -165,9 +274,6 @@ class Agent:
         # we return them so the caller can handle user input or safety checks.
         if not computer_call:
             if messages or all_safety_checks:
-                print("* RESPONSE: ")
-                print(response)
-                print("\n---------\n")
                 return response, messages or None, all_safety_checks or None, None
             # Otherwise, no calls, no messages, no checks => done
             print("No actionable computer_call or interactive prompt found. Finishing loop.")
@@ -260,12 +366,13 @@ class Agent:
         self._needs_input = []
         self._error = None
         
-    def action(self, input_text=None, acknowledged_safety_checks=False):
+    def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False):
         """
         Execute an action in the desktop environment. This method handles different scenarios:
         - Starting a new conversation with a command
         - Continuing a conversation with user input
         - Acknowledging safety checks for a pending call
+        - Automatically handling safety checks and input requests if ignore_safety_and_input is True
         
         The method maintains state internally and returns a simple status and relevant data.
         
@@ -276,6 +383,8 @@ class Agent:
                        - None if acknowledging safety checks
             acknowledged_safety_checks: Whether safety checks have been acknowledged
                                        (only relevant if there's a pending call)
+            ignore_safety_and_input: If True, automatically handle safety checks and input requests
+                                    without requiring user interaction
         
         Returns:
             Tuple of (status, data), where:
@@ -291,6 +400,10 @@ class Agent:
             return AgentStatus.ERROR, self._error
             
         try:
+            # If we're ignoring safety and input, handle them automatically
+            if ignore_safety_and_input:
+                return self._handle_action_with_auto_responses(input_text)
+            
             # Case 1: Acknowledging safety checks for a pending call
             if acknowledged_safety_checks and self._pending_call:
                 return self._handle_acknowledged_safety_checks()
@@ -310,6 +423,64 @@ class Agent:
         except Exception as e:
             self._error = str(e)
             return AgentStatus.ERROR, self._error
+            
+    def _handle_action_with_auto_responses(self, input_text):
+        """Handle an action with automatic responses to safety checks and input requests."""
+        # Start with a new command if provided, or continue from current state
+        if input_text is not None:
+            status, data = self._handle_new_command(input_text)
+        elif self._current_response:
+            # Continue from current state
+            status, data = AgentStatus.COMPLETE, self._current_response
+        else:
+            self._error = "No input provided and no current conversation to continue."
+            return AgentStatus.ERROR, self._error
+            
+        # Loop until we get a COMPLETE status or hit an error
+        max_iterations = 500  # Safety limit to prevent infinite loops
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            print(f"Auto-response iteration {iteration}")
+            
+            if status == AgentStatus.COMPLETE:
+                # We're done
+                return status, data
+                
+            elif status == AgentStatus.NEEDS_SAFETY_CHECK:
+                # Automatically acknowledge safety checks
+                print("Automatically acknowledging safety checks:")
+                safety_checks = data["safety_checks"]
+                for check in safety_checks:
+                    if hasattr(check, "message"):
+                        print(f"- {check.message}")
+                
+                # Handle the acknowledged safety checks
+                status, data = self._handle_acknowledged_safety_checks()
+                
+            elif status == AgentStatus.NEEDS_INPUT:
+                # Generate an automatic response
+                messages = data
+                question = ""
+                for msg in messages:
+                    if hasattr(msg, "content"):
+                        text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+                        question += " ".join(text_parts)
+                
+                # Generate an automatic response
+                auto_response = self._auto_generate_input(question, self._input_history)
+                
+                # Continue with the auto-generated response
+                status, data = self._handle_user_input(auto_response)
+                
+            elif status == AgentStatus.ERROR:
+                # An error occurred
+                return status, data
+                
+        # If we get here, we hit the iteration limit
+        self._error = f"Exceeded maximum iterations ({max_iterations}) in auto-response mode."
+        return AgentStatus.ERROR, self._error
             
     def _handle_new_command(self, command_text):
         """Handle a new command from the user."""
@@ -380,8 +551,20 @@ class Agent:
             }
             
         if messages:
-            self._needs_input = messages
-            return AgentStatus.NEEDS_INPUT, messages
+            # Check if any of the messages are asking for input
+            needs_input = False
+            for message in messages:
+                if self._is_message_asking_for_input(message, self._input_history):
+                    needs_input = True
+                    break
+                    
+            if needs_input:
+                # The message is asking for more input
+                self._needs_input = messages
+                return AgentStatus.NEEDS_INPUT, messages
+            else:
+                # The message is a final answer
+                return AgentStatus.COMPLETE, output
             
         # If we get here, the action is complete
         return AgentStatus.COMPLETE, output
