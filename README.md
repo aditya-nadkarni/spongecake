@@ -336,71 +336,88 @@ def get_screenshot(self) -> str:
 
 ## OpenAI Agent Integration
 
-### **`action(input=None, user_input=None, safety_checks=None, pending_call=None)`**
+### **`action(input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False, complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None)`**
+
+---
+
+### Purpose
+
+The `action` function lets you control the desktop environment via an agent, managing commands, user inputs, and security checks in a streamlined way.
+
+### Arguments
+
+- **`input_text`** *(str, optional)*:  
+  New commands or responses to agent prompts.
+
+- **`acknowledged_safety_checks`** *(bool, optional)*:  
+  Set `True` after the user confirms pending security checks.
+
+- **`ignore_safety_and_input`** *(bool, optional)*:  
+  Automatically approves security checks and inputs. **Use cautiously.**
+
+- **Handlers** *(callables, optional)*:  
+  Customize how different statuses are handled:
+  - **`complete_handler(data)`**: Final results.
+  - **`needs_input_handler(messages)`**: Collects user input.
+  - **`needs_safety_check_handler(safety_checks, pending_call)`**: Approves security checks.
+  - **`error_handler(error_message)`**: Manages errors.
+
+### How it works
+
+The `action` function returns one of four statuses:
+
+### Status Handling
+
+- **COMPLETE**:  
+  Task finished successfully. Handle final output.
+
+- **ERROR**:  
+  Review the returned error message and handle accordingly.
+
+- **NEEDS_INPUT**:  
+  Provide additional user input and call `action()` again with this input.
+
+- **NEEDS_SECURITY_CHECK**:  
+  Review security warnings and confirm with `acknowledged_safety_checks=True`.
+
+Example workflow:
+```python
+status, data = agent.action(input_text="Open Chrome")
+
+if status == AgentStatus.COMPLETE:
+    print("Done:", data)
+elif status == AgentStatus.ERROR:
+    print("Error:", data)
+elif status == AgentStatus.NEEDS_INPUT:
+    user_reply = input(f"Input needed: {data}")
+    agent.action(input_text=user_reply)
+elif status == AgentStatus.NEEDS_SECURITY_CHECK:
+    confirm = input(f"Security checks: {data['safety_checks']} Proceed? (y/N): ")
+    if confirm.lower() == "y":
+        agent.action(acknowledged_safety_checks=True)
+    else:
+        print("Action cancelled.")
+```
+
+### Auto Mode
+
+Set `ignore_safety_and_input=True` for automatic handling of inputs and security checks. Use carefully as this bypasses user prompts and approvals.
+
+### Using Handlers
+
+Provide handler functions to automate status management, simplifying your code:
 
  > Check out the [guide for using this function](#-guide-using-the-action-command) for more details
 
 ```python
-def action(self, input=None, user_input=None, safety_checks=None, pending_call=None) -> dict:
-    """
-    Execute an action in the container environment. The action can be:
-    - A brand-new user command
-    - A continued conversation with user_input
-    - A resumed computer_call (pending_call) that was previously halted for safety checks
-
-    """
+agent.action(
+    input_text="Open Chrome",
+    complete_handler=lambda data: print("Done:", data),
+    error_handler=lambda error: print("Error:", error),
+    needs_input_handler=lambda msgs: input(f"Agent asks: {msgs}"),
+    needs_safety_check_handler=lambda checks, call: input(f"Approve {checks}? (y/N): ").lower() == "y"
+)
 ```
-
-**Purpose**  
-Allows the agent to perform actions in the container environment. It can either start a new command, continue a text-based conversation, or resume a previously halted computer call that needed safety checks.
-
-**How It Works**  
-1. **Normal text flow**:  
-   - If you provide a brand-new command (`input`) without `user_input`, the agent starts a fresh action.  
-   - If there’s existing conversation context (`input` as a stored response) and you provide `user_input`, the agent continues the dialogue.  
-
-2. **Resuming a pending call**:  
-   - If there’s a halted `pending_call` (from a previous safety check), the agent executes that call immediately instead of continuing text-based interaction.  
-
-**Arguments**:
-
-- **`input`**  
-  A string command or a stored response object from the agent. If no conversation is ongoing, pass a simple text command to start. If continuing a session, pass the previous agent response.  
-
-- **`user_input`**  
-  Text you enter when the agent asks a follow-up question. Only needed if the agent specifically requests more info.  
-
-- **`safety_checks`**  
-  A list of safety check objects that you’ve acknowledged. If the agent previously flagged something for user approval, pass those checks back to proceed.
-
-- **`pending_call`**  
-  A call object returned in a prior response, indicating a system action is paused until safety checks are acknowledged. Once acknowledged, pass this object here to resume.
-
-**Returns**:
-
-A dictionary that may contain:
-```json
-{
-  "result": { ... },           // The agent's current output or state
-  "needs_input": [ ... ],      // (optional) Messages prompting the user for more input
-  "safety_checks": [ ... ],    // (optional) Safety checks that must be acknowledged
-  "pending_call": { ... }      // (optional) An action waiting for safety check confirmation
-}
-```
-
-- **`result`**  
-  The most recent output or actions from the agent.  
-
-- **`needs_input`**  
-  If present, the agent is prompting you for more information (a text message).  
-
-- **`safety_checks`**  
-  If present, you must confirm these checks to continue.  
-
-- **`pending_call`**  
-  If present, pass this object back into `action` along with any acknowledged checks to finalize the pending action.  
-
-Use this function whenever you want the agent to do something in the desktop environment or continue an ongoing conversation. If the response indicates that user input or safety checks are required, provide them and call `action` again.
 
 ---
 
