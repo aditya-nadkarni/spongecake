@@ -71,20 +71,6 @@ def main():
     container = desktop.start()
     print("🍰 spongecake container started:", container)
     print("...\n")
-
-    # Prompt user for action
-    print('What would you like your agent to do? Below are some examples or write your own:')
-    print('  > Find me flights from San Francisco to Tokyo')
-    print('  > Go to Youtube.com and search for a video titled "Python Tutorial"')
-    print('  > auto:Fill out the form at https://bit.ly/3RiWH76, CBP\'s website')
-    print('Note: Begin prompt with \"auto\" to run without any interactions - use carefully')
-
-    # Check if auto mode is requested
-    auto_mode = False
-    if user_prompt.lower().startswith("auto:"):
-        auto_mode = True
-        user_prompt = user_prompt[5:].strip()
-        print("\n🤖 Auto mode enabled - safety checks and input requests will be handled automatically")
     
     try:
         print(
@@ -92,6 +78,33 @@ def main():
             "OR connect to the VNC server to view actions in real time"
         )
 
+        
+        user_prompt = f"""
+            # AGENT INSTRUCTIONS #
+            Go to www.linkedin.com/sales/search/people?savedSearchId=1864334412 [REPLACE WITH YOUR OWN LINKEDIN SEARCH/PROSPECTING URL]
+
+            For everyone on this page, ALWAYS strictly return who is a marketing director in this JSON format: 
+            marketing_directors: [
+            'name': '',
+            'title': '',
+            ]
+
+            A marketing director should ALWAYS be returned if: 
+            - They have the words 'Marketing' and 'Director' in their title in any order. It's ok if other words are in their title
+            AND 
+            - We have mutual connections which you can see at the bottom of a person's profile (you NEVER have to click)
+
+            # INTERACTION INSTRUCTIONS # 
+            You are ALWAYS TO SCROLL DOWN. NEVER CLICK AND NEVER SCROLL UP
+            When you have extracted EVERY marketing director, ALWAYS before you scroll down, ALWAYS output the current marketing_directors object in a JSON format, and ask the user if things look correct 
+
+            # STOPPING CONDITION # 
+            You are STRICTLY ONLY done until you have seen the pagination element at the bottom of the page 'e.g., 1 2 3 4 5 6 ...'. NEVER CLICK ON THESE PAGES - YOU ARE FINISHED WITH YOUR TASK WHEN YOU SEE THESE 
+            ALWAYS RETURN strictly the marketing_directors object in a JSON format
+
+        """
+
+        auto_mode = False
         # If auto_mode is enabled, use the ignore_safety_and_input flag
         if auto_mode:
             status, data = desktop.action(input_text=user_prompt, ignore_safety_and_input=True)
@@ -122,8 +135,8 @@ def main():
         print("\nExiting gracefully...")
 
     # Clean up the container. Optionally, leave the container running and connect to it again when needed. 
-    print("Stopping and removing container...")
-    desktop.stop()
+    # print("Stopping and removing container...")
+    # desktop.stop()
     print("🍰")
 
 

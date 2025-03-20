@@ -180,7 +180,7 @@ class Desktop:
         if scroll_y != 0:
             button = 4 if scroll_y < 0 else 5
             clicks = int(abs(scroll_y)/100)
-            for _ in range(4):
+            for _ in range(3):
                 scroll_cmd = f"export DISPLAY={self.display} && xdotool click {button}"
                 self.exec(scroll_cmd)
 
@@ -188,7 +188,7 @@ class Desktop:
         if scroll_x != 0:
             button = 6 if scroll_x < 0 else 7
             clicks = int(abs(scroll_x)/100)
-            for _ in range(4):
+            for _ in range(3):
                 scroll_cmd = f"export DISPLAY={self.display} && xdotool click {button}"
                 self.exec(scroll_cmd)
 
