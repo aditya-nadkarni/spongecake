@@ -6,6 +6,7 @@ import base64
 import logging
 import warnings
 from openai import OpenAI
+from .constants import AgentStatus
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -320,6 +321,9 @@ class Desktop:
             DeprecationWarning, 
             stacklevel=2
         )
+        logger.warn(
+            "action() with the old signature is deprecated and will be removed in a future release. Please use action() instead.",
+        )
 
         # Translate old-style arguments into new-style ones
         input_text = user_input if user_input else input
@@ -407,13 +411,18 @@ class Desktop:
         user_input = kwargs.get("user_input")
         safety_checks = kwargs.get("safety_checks")
         pending_call = kwargs.get("pending_call")
-
-        if any([old_input, user_input, safety_checks, pending_call]):
+        if type(acknowledged_safety_checks) == str:
+            # using positional arguments in old style
+            old_input = input_text
+            user_input = acknowledged_safety_checks
+            safety_checks = ignore_safety_and_input
+            pending_call = complete_handler
+        if any([old_input, user_input, safety_checks, pending_call]) or type(acknowledged_safety_checks) == str:
             warnings.warn(
-            "Looks like you're using the old action() command - switch to action_legacy() if you need to maintain your current code, or switch to the new action method",
-            DeprecationWarning, 
-            stacklevel=2
-        )
+                "Looks like you're using the old action() command - switch to action_legacy() if you need to maintain your current code, or switch to the new action method",
+                DeprecationWarning, 
+                stacklevel=2
+            )
             return self.action_legacy(
                 input=old_input,
                 user_input=user_input,
@@ -453,6 +462,9 @@ class Desktop:
         4) If there's a pending computer call with safety checks, ask user for ack, then continue
         5) Repeat until no further action is required
         """
+        logger.warn(
+            "Looks like you're using the old handle_action() command - switch to action_legacy() if you need to maintain your current code, or switch to the new action method: action()",
+        )
         print(
             "Performing desktop action... see output_image.png to see screenshots "
             "OR connect to the VNC server to view actions in real time"

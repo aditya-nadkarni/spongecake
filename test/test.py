@@ -100,16 +100,15 @@ def main():
             if status == AgentStatus.ERROR:
                 print(f"❌ error in auto mode: {data}")
             result[0] = data
-        
-
-        # ACTION: Start the action chain with the initial command and all handlers
-        status, data = desktop.action(
-            input_text=user_prompt,
-            complete_handler=complete_handler,
-            needs_input_handler=needs_input_handler,
-            needs_safety_check_handler=needs_safety_check_handler,
-            error_handler=error_handler
-        )
+        else:
+            # ACTION: Start the action chain with the initial command and all handlers
+            status, data = desktop.action(
+                input_text=user_prompt,
+                complete_handler=complete_handler,
+                needs_input_handler=needs_input_handler,
+                needs_safety_check_handler=needs_safety_check_handler,
+                error_handler=error_handler
+            )
 
         # Show final results
         final_result = result[0]
