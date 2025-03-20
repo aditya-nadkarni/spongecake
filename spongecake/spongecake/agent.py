@@ -366,15 +366,18 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         self._needs_input = []
         self._error = None
         
-    def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False):
+    def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
+               complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None):
         """
         Execute an action in the desktop environment. This method handles different scenarios:
         - Starting a new conversation with a command
         - Continuing a conversation with user input
         - Acknowledging safety checks for a pending call
         - Automatically handling safety checks and input requests if ignore_safety_and_input is True
+        - Using custom handlers for different statuses if provided
         
-        The method maintains state internally and returns a simple status and relevant data.
+        The method maintains state internally and returns a simple status and relevant data,
+        or delegates to the appropriate handler if provided.
         
         Args:
             input_text: Text input from the user. This can be:
@@ -385,6 +388,18 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                                        (only relevant if there's a pending call)
             ignore_safety_and_input: If True, automatically handle safety checks and input requests
                                     without requiring user interaction
+            complete_handler: Function to handle COMPLETE status
+                             Signature: (data) -> None
+                             Returns: None (terminal state)
+            needs_input_handler: Function to handle NEEDS_INPUT status
+                                Signature: (messages) -> str
+                                Returns: User input to continue with
+            needs_safety_check_handler: Function to handle NEEDS_SAFETY_CHECK status
+                                       Signature: (safety_checks, pending_call) -> bool
+                                       Returns: Whether to proceed with the call (True) or not (False)
+            error_handler: Function to handle ERROR status
+                          Signature: (error_message) -> None
+                          Returns: None (terminal state)
         
         Returns:
             Tuple of (status, data), where:
@@ -394,35 +409,96 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
               - For NEEDS_INPUT: List of messages requesting input
               - For NEEDS_SAFETY_CHECK: List of safety checks and the pending call
               - For ERROR: Error message
+            
+            If handlers are provided, this function may return different values based on the handler's execution.
         """
         if self.desktop is None:
             self._error = "No desktop has been set for this agent."
-            return AgentStatus.ERROR, self._error
+            error_result = AgentStatus.ERROR, self._error
+            if error_handler:
+                error_handler(self._error)
+            return error_result
             
         try:
             # If we're ignoring safety and input, handle them automatically
             if ignore_safety_and_input:
-                return self._handle_action_with_auto_responses(input_text)
+                status, data = self._handle_action_with_auto_responses(input_text)
+                # Even in auto mode, we should pass through handlers if provided
+                return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
+                                                        needs_safety_check_handler, error_handler)
             
             # Case 1: Acknowledging safety checks for a pending call
             if acknowledged_safety_checks and self._pending_call:
-                return self._handle_acknowledged_safety_checks()
+                status, data = self._handle_acknowledged_safety_checks()
+                return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
+                                                        needs_safety_check_handler, error_handler)
                 
             # Case 2: Continuing a conversation with user input
             if self._needs_input and input_text is not None:
-                return self._handle_user_input(input_text)
+                status, data = self._handle_user_input(input_text)
+                return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
+                                                        needs_safety_check_handler, error_handler)
                 
             # Case 3: Starting a new conversation with a command
             if input_text is not None:
-                return self._handle_new_command(input_text)
+                status, data = self._handle_new_command(input_text)
+                return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
+                                                        needs_safety_check_handler, error_handler)
                 
             # If we get here, there's no valid action to take
             self._error = "No valid action to take. Provide input text or acknowledge safety checks."
-            return AgentStatus.ERROR, self._error
+            error_result = AgentStatus.ERROR, self._error
+            if error_handler:
+                error_handler(self._error)
+            return error_result
                 
         except Exception as e:
             self._error = str(e)
-            return AgentStatus.ERROR, self._error
+            error_result = AgentStatus.ERROR, self._error
+            if error_handler:
+                error_handler(self._error)
+            return error_result
+            
+    def _process_result_with_handlers(self, status, data, complete_handler, needs_input_handler, 
+                                     needs_safety_check_handler, error_handler):
+        """Process a result with the appropriate handler if provided."""
+        # If handlers are provided, use them to handle the different statuses
+        if status == AgentStatus.COMPLETE and complete_handler:
+            complete_handler(data)
+            return status, data
+            
+        elif status == AgentStatus.NEEDS_INPUT and needs_input_handler:
+            user_input = needs_input_handler(data)
+            if user_input:
+                # Continue with the provided input - pass all handlers
+                return self.action(
+                    input_text=user_input,
+                    complete_handler=complete_handler,
+                    needs_input_handler=needs_input_handler,
+                    needs_safety_check_handler=needs_safety_check_handler,
+                    error_handler=error_handler
+                )
+            return status, data
+            
+        elif status == AgentStatus.NEEDS_SAFETY_CHECK and needs_safety_check_handler:
+            proceed = needs_safety_check_handler(data["safety_checks"], data["pending_call"])
+            if proceed:
+                # Continue with acknowledged safety checks - pass all handlers
+                return self.action(
+                    acknowledged_safety_checks=True,
+                    complete_handler=complete_handler,
+                    needs_input_handler=needs_input_handler,
+                    needs_safety_check_handler=needs_safety_check_handler,
+                    error_handler=error_handler
+                )
+            return status, data
+            
+        elif status == AgentStatus.ERROR and error_handler:
+            error_handler(data)
+            return status, data
+            
+        # If no handler or handler didn't take action, return the result
+        return status, data
             
     def _handle_action_with_auto_responses(self, input_text):
         """Handle an action with automatic responses to safety checks and input requests."""

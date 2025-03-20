@@ -64,7 +64,7 @@ class Desktop:
 
         except NotFound:
             # The container does not exist yet. Create it and pull the image first.
-            print(f"Container '{self.container_name}' not found. Creating and starting a new container...")
+            print(f"⏰ Creating and starting a new container '{self.container_name}'...")
 
             # Always attempt to pull the latest version of the image
             try:
@@ -86,7 +86,7 @@ class Desktop:
             except ImageNotFound:
                 # If for some reason the image is still not found locally,
                 # try pulling again explicitly and run once more.
-                print(f"Image '{self.docker_image}' not found locally. Pulling now...")
+                print(f"Pulling image '{self.docker_image}'now...")
                 try:
                     self.docker_client.images.pull(self.docker_image)
                 except APIError as e:
@@ -304,7 +304,8 @@ class Desktop:
         if agent is not None:
             agent.set_desktop(self)
             
-    def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False):
+    def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
+              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None):
         """
         Execute an action in the desktop environment. This method delegates to the agent's action method.
         
@@ -317,6 +318,18 @@ class Desktop:
                                        (only relevant if there's a pending call)
             ignore_safety_and_input: If True, automatically handle safety checks and input requests
                                     without requiring user interaction
+            complete_handler: Function to handle COMPLETE status
+                             Signature: (data) -> None
+                             Returns: None (terminal state)
+            needs_input_handler: Function to handle NEEDS_INPUT status
+                                Signature: (messages) -> str
+                                Returns: User input to continue with
+            needs_safety_check_handler: Function to handle NEEDS_SAFETY_CHECK status
+                                       Signature: (safety_checks, pending_call) -> bool
+                                       Returns: Whether to proceed with the call (True) or not (False)
+            error_handler: Function to handle ERROR status
+                          Signature: (error_message) -> None
+                          Returns: None (terminal state)
         
         Returns:
             Tuple of (status, data), where:
@@ -324,7 +337,15 @@ class Desktop:
             - data contains relevant information based on the status
         """
         agent = self.get_agent()
-        return agent.action(input_text, acknowledged_safety_checks, ignore_safety_and_input)
+        return agent.action(
+            input_text=input_text, 
+            acknowledged_safety_checks=acknowledged_safety_checks, 
+            ignore_safety_and_input=ignore_safety_and_input,
+            complete_handler=complete_handler,
+            needs_input_handler=needs_input_handler,
+            needs_safety_check_handler=needs_safety_check_handler,
+            error_handler=error_handler
+        )
         
     def handle_action(self, action_input, stored_response=None, user_input=None):
         """
