@@ -4,6 +4,7 @@ import requests
 import time
 import base64
 import logging
+import warnings
 from openai import OpenAI
 
 # Set up logger
@@ -307,11 +308,72 @@ class Desktop:
         self._agent = agent
         if agent is not None:
             agent.set_desktop(self)
+
+    def action_legacy(self, input=None, user_input=None, safety_checks=None, pending_call=None):
+        """
+        DEPRECATED wrapper for backwards compatibility.
+        Translates old parameters to new 'action' signature.
+        """
+        warnings.warn(
+            "action() with the old signature is deprecated and will be removed "
+            "in a future release. Please use action() instead.",
+            DeprecationWarning, 
+            stacklevel=2
+        )
+
+        # Translate old-style arguments into new-style ones
+        input_text = user_input if user_input else input
+        # If safety_checks is provided, we interpret that as acknowledged checks
+        acknowledged_safety_checks = bool(safety_checks)
+        # Decide if we're ignoring all checks
+        ignore_safety_and_input = False
+
+        # call the new function
+        status, data = self.action(
+            input_text=input_text,
+            acknowledged_safety_checks=acknowledged_safety_checks,
+            ignore_safety_and_input=ignore_safety_and_input,
+            # Handlers can be passed in or left as None for the default behavior
+        )
+
+        # Convert the new function's return data back to the "old style" dict
+        # so existing users still get what they're expecting
+        if status == AgentStatus.COMPLETE:
+            return {
+                "result": data,             # old style calls this "result"
+                "needs_input": [],
+                "safety_checks": [],
+                "pending_call": None
+            }
+        elif status == AgentStatus.NEEDS_INPUT:
+            return {
+                "result": None,
+                "needs_input": data,        # data in the new style is a list of messages
+                "safety_checks": [],
+                "pending_call": None
+            }
+        elif status == AgentStatus.NEEDS_SAFETY_CHECK:
+            safety_checks, pending_call = data
+            return {
+                "result": None,
+                "needs_input": [],
+                "safety_checks": safety_checks,
+                "pending_call": pending_call
+            }
+        elif status == AgentStatus.ERROR:
+            return {
+                "result": None,
+                "needs_input": [],
+                "safety_checks": [],
+                "pending_call": None,
+                "error": data
+            }
+
             
     def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
-              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None):
+              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, **kwargs):
         """
-        Execute an action in the desktop environment. This method delegates to the agent's action method.
+        New and improved action command: Execute an action in the desktop environment. This method delegates to the agent's action method.
         
         Args:
             input_text: Text input from the user. This can be:
@@ -340,6 +402,25 @@ class Desktop:
             - status is an AgentStatus enum value indicating the result
             - data contains relevant information based on the status
         """
+        # Look for old-style keys in **kwargs:
+        old_input = kwargs.get("input")
+        user_input = kwargs.get("user_input")
+        safety_checks = kwargs.get("safety_checks")
+        pending_call = kwargs.get("pending_call")
+
+        if any([old_input, user_input, safety_checks, pending_call]):
+            warnings.warn(
+            "Looks like you're using the old action() command - switch to action_legacy() if you need to maintain your current code, or switch to the new action method",
+            DeprecationWarning, 
+            stacklevel=2
+        )
+            return self.action_legacy(
+                input=old_input,
+                user_input=user_input,
+                safety_checks=safety_checks,
+                pending_call=pending_call
+            )
+
         agent = self.get_agent()
         return agent.action(
             input_text=input_text, 
@@ -350,3 +431,79 @@ class Desktop:
             needs_safety_check_handler=needs_safety_check_handler,
             error_handler=error_handler
         )
+
+    def extract_and_print_safety_checks(self, result):
+        checks = result.get("safety_checks") or []
+        for check in checks:
+            # If each check has a 'message' attribute with sub-parts
+            if hasattr(check, "message"):
+                # Gather text for printing
+                print(f"Pending Safety Check: {check.message}")
+        return checks
+
+    def handle_action(self, action_input, stored_response=None, user_input=None):
+        """
+        DEPRECATED: Method for handling old `action` method.
+        
+        Demo function to call and manage `action` loop and responses
+        
+        1) Call the desktop.action method to handle commands or continue interactions
+        2) Print out agent prompts and safety checks
+        3) If there's user input needed, prompt
+        4) If there's a pending computer call with safety checks, ask user for ack, then continue
+        5) Repeat until no further action is required
+        """
+        print(
+            "Performing desktop action... see output_image.png to see screenshots "
+            "OR connect to the VNC server to view actions in real time"
+        )
+
+        # Start the chain
+        initial_input = stored_response if stored_response else action_input
+        result = self.action(input=initial_input, user_input=user_input)
+
+        while True:
+            # Check if the agent is asking for user text input
+            needs_input = result.get("needs_input")
+            # Check for any pending computer_call we must run after acknowledging checks
+            pending_call = result.get("pending_call")
+
+            # Print any safety checks
+            safety_checks = self.extract_and_print_safety_checks(result)
+
+            # If the agent is asking for text input, handle that
+            if needs_input:
+                for msg in needs_input:
+                    if hasattr(msg, "content"):
+                        text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+                        print(f"Agent asks: {' '.join(text_parts)}")
+
+                user_says = input("Enter your response (or 'exit'/'quit'): ").strip().lower()
+                if user_says in ("exit", "quit"):
+                    print("Exiting as per user request.")
+                    return result
+
+                # Call .action again with the user text, plus the previously extracted checks
+                # They may or may not matter if there are no pending calls
+                result = self.action(input=result["result"], user_input=user_says, safety_checks=safety_checks)
+                continue
+
+            # If there's a pending call with checks, the user must acknowledge them
+            if pending_call and safety_checks:
+                print(
+                    "Please acknowledge the safety check(s) in order to proceed with the computer call."
+                )
+                ack = input("Type 'ack' to confirm, or 'exit'/'quit': ").strip().lower()
+                if ack in ("exit", "quit"):
+                    print("Exiting as per user request.")
+                    return result
+                if ack == "ack":
+                    print("Acknowledged. Proceeding with the computer call...")
+                    # We call 'action' again with the pending_call
+                    # and pass along the same safety_checks to mark them as acknowledged
+                    result = self.action(input=result["result"], pending_call=pending_call, safety_checks=safety_checks)
+                    continue
+
+            # If we reach here, no user input is needed & no pending call with checks
+            # so presumably we are done
+            return result
