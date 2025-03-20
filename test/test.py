@@ -1,7 +1,15 @@
 # test_script.py
+import logging
 from time import sleep
 from dotenv import load_dotenv
 from spongecake import Desktop, AgentStatus
+
+# Configure logging - most logs in the SDK are INFO level logs
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(message)s'
+)
+
 load_dotenv()
 
 result = [None]
@@ -34,7 +42,7 @@ def needs_safety_check_handler(safety_checks, pending_call):
     print("\n")
     for check in safety_checks:
         if hasattr(check, "message"):
-            print(f"☢️ Pending Safety Check: {check.message}")
+            print(f"☢️  Pending Safety Check: {check.message}")
 
     print("🔔 Please acknowledge the safety check(s) in order to proceed with the computer call.")
     ack = input("Type 'ack' to confirm, or 'exit'/'quit': ").strip().lower()

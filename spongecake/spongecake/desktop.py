@@ -3,7 +3,11 @@ from docker.errors import NotFound, ImageNotFound, APIError
 import requests
 import time
 import base64
+import logging
 from openai import OpenAI
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 import os
 import requests
@@ -53,24 +57,24 @@ class Desktop:
         try:
             # Check to see if the container already exists
             container = self.docker_client.containers.get(self.container_name)
-            print(f"⏰ Container '{self.container_name}' found with status '{container.status}'.")
+            logger.info(f"⏰ Container '{self.container_name}' found with status '{container.status}'.")
 
             # If it's not running, start it
             if container.status != "running":
-                print(f"Container '{self.container_name}' is not running. Starting...")
+                logger.info(f"Container '{self.container_name}' is not running. Starting...")
                 container.start()
             else:
-                print(f"Container '{self.container_name}' is already running.")
+                logger.info(f"Container '{self.container_name}' is already running.")
 
         except NotFound:
             # The container does not exist yet. Create it and pull the image first.
-            print(f"⏰ Creating and starting a new container '{self.container_name}'...")
+            logger.info(f"⏰ Creating and starting a new container '{self.container_name}'...")
 
             # Always attempt to pull the latest version of the image
             try:
                 self.docker_client.images.pull(self.docker_image)
             except APIError as e:
-                print("Failed to pull image. Attempting to start container...")
+                logger.info("Failed to pull image. Attempting to start container...")
 
             # Try running a new container from the (hopefully just-pulled) image
             try:
@@ -86,7 +90,7 @@ class Desktop:
             except ImageNotFound:
                 # If for some reason the image is still not found locally,
                 # try pulling again explicitly and run once more.
-                print(f"Pulling image '{self.docker_image}'now...")
+                logger.info(f"Pulling image '{self.docker_image}' now...")
                 try:
                     self.docker_client.images.pull(self.docker_image)
                 except APIError as e:
@@ -117,9 +121,9 @@ class Desktop:
             container = self.docker_client.containers.get(self.container_name)
             container.stop()
             container.remove()
-            print(f"Container '{self.container_name}' stopped and removed.")
+            logger.info(f"Container '{self.container_name}' stopped and removed.")
         except docker.errors.NotFound:
-            print(f"Container '{self.container_name}' not found.")
+            logger.info(f"Container '{self.container_name}' not found.")
 
     # -------------------------
     # DESKTOP ACTIONS
@@ -134,7 +138,7 @@ class Desktop:
         # Use /bin/sh -c to execute shell commands
         result = container.exec_run(["/bin/sh", "-c", command], stdout=True, stderr=True)
         if result.output:
-            print("Command Output:", result.output.decode())
+            logger.debug(f"Command Output: {result.output.decode()}")
 
         return {
             "result": result.output.decode() if result.output else "",
@@ -152,7 +156,7 @@ class Desktop:
         click_type_map = {"left": 1, "middle": 2, "wheel": 2, "right": 3}
         t = click_type_map.get(click_type.lower(), 1)
 
-        print(f"Action: click at ({x}, {y}) with button '{click_type}' -> mapped to {t}")
+        logger.info(f"Action: click at ({x}, {y}) with button '{click_type}' -> mapped to {t}")
         cmd = f"export DISPLAY={self.display} && xdotool mousemove {x} {y} click {t}"
         self.exec(cmd)
 
@@ -165,7 +169,7 @@ class Desktop:
         Negative scroll_y -> scroll up, positive -> scroll down.
         Negative scroll_x -> scroll left, positive -> scroll right (button 6 or 7).
         """
-        print(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
+        logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
         # Move mouse to position
         move_cmd = f"export DISPLAY={self.display} && xdotool mousemove {x} {y}"
         self.exec(move_cmd)
@@ -195,21 +199,21 @@ class Desktop:
         Ctrl/Shift down, pressing other keys, then releasing them.
         Example: keys=["CTRL","F"] -> Ctrl+F
         """
-        print(f"Action: keypress with keys: {keys}")
+        logger.info(f"Action: keypress with keys: {keys}")
 
         ctrl_pressed = False
         shift_pressed = False
 
         for k in keys:
-            print(f"  - key '{k}'")
+            logger.info(f"  - key '{k}'")
 
             # Check modifiers
             if k.upper() == 'CTRL':
-                print("    => holding down CTRL")
+                logger.info("    => holding down CTRL")
                 self.exec(f"export DISPLAY={self.display} && xdotool keydown ctrl")
                 ctrl_pressed = True
             elif k.upper() == 'SHIFT':
-                print("    => holding down SHIFT")
+                logger.info("    => holding down SHIFT")
                 self.exec(f"export DISPLAY={self.display} && xdotool keydown shift")
                 shift_pressed = True
             # Check special keys
@@ -224,10 +228,10 @@ class Desktop:
 
         # Release modifiers
         if ctrl_pressed:
-            print("    => releasing CTRL")
+            logger.info("    => releasing CTRL")
             self.exec(f"export DISPLAY={self.display} && xdotool keyup ctrl")
         if shift_pressed:
-            print("    => releasing SHIFT")
+            logger.info("    => releasing SHIFT")
             self.exec(f"export DISPLAY={self.display} && xdotool keyup shift")
 
     # ----------------------------------------------------------------
@@ -237,7 +241,7 @@ class Desktop:
         """
         Type a string of text (like using a keyboard) at the current cursor location.
         """
-        print(f"Action: type text: {text}")
+        logger.info(f"Action: type text: {text}")
         cmd = f"export DISPLAY={self.display} && xdotool type '{text}'"
         self.exec(cmd)
     

@@ -1,8 +1,12 @@
 import base64
+import logging
 import time
 import enum
 from typing import List, Dict, Any, Optional, Union, Tuple
 from openai import OpenAI
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 class AgentStatus(enum.Enum):
     """Status of an agent action."""
@@ -114,10 +118,10 @@ class Agent:
                 # Handle other actions here
 
                 case _:
-                    print(f"Unrecognized action: {action}")
+                    logger.info(f"Unrecognized action: {action}")
 
         except Exception as e:
-            print(f"Error handling action {action}: {e}")
+            logger.error(f"Error handling action {action}: {e}")
 
     def _auto_generate_input(self, question: str, input_history=None) -> str:
         """Generate an automated response to agent questions using OpenAI.
@@ -152,10 +156,10 @@ class Agent:
             )
             
             auto_response = response.choices[0].message.content.strip()
-            print(f"Auto-generated response: {auto_response}")
+            logger.info(f"Auto-generated response: {auto_response}")
             return auto_response
         except Exception as e:
-            print(f"Error generating automated response: {str(e)}")
+            logger.error(f"Error generating automated response: {str(e)}")
             return "continue"
 
     def _is_message_asking_for_input(self, message, input_history=None):
@@ -219,12 +223,12 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                 return False
             else:
                 # If the model didn't return a clear 0 or 1, default to assuming input is needed
-                print(f"Warning: Unclear response from input detection model: {result}. Assuming input is needed.")
+                logger.info(f"Unclear response from input detection model: {result}. Assuming input is needed.")
                 return True
                 
         except Exception as e:
             # If there's an error, default to assuming it needs input
-            print(f"Error determining if message needs input: {e}. Assuming input is needed.")
+            logger.error(f"Error determining if message needs input: {e}. Assuming input is needed.")
             return True
     
     def computer_use_loop(self, response):
@@ -276,7 +280,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             if messages or all_safety_checks:
                 return response, messages or None, all_safety_checks or None, None
             # Otherwise, no calls, no messages, no checks => done
-            print("No actionable computer_call or interactive prompt found. Finishing loop.")
+            logger.info("No actionable computer_call or interactive prompt found. Finishing loop.")
             return response, None, None, None
 
         # If we got here, that means there's a computer_call *without* any safety checks,
@@ -291,7 +295,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         image_data = base64.b64decode(screenshot_base64)
         with open("output_image.png", "wb") as f:
             f.write(image_data)
-        print("* Saved image data.")
+        logger.info("* Saved image data.")
 
         # Now send that screenshot back as `computer_call_output`
         new_response = self.openai_client.responses.create(
@@ -518,7 +522,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         
         while iteration < max_iterations:
             iteration += 1
-            print(f"Auto-response iteration {iteration}")
+            logger.info(f"Auto-response iteration {iteration}")
             
             if status == AgentStatus.COMPLETE:
                 # We're done
@@ -526,11 +530,11 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                 
             elif status == AgentStatus.NEEDS_SAFETY_CHECK:
                 # Automatically acknowledge safety checks
-                print("Automatically acknowledging safety checks:")
+                logger.info("Automatically acknowledging safety checks:")
                 safety_checks = data["safety_checks"]
                 for check in safety_checks:
                     if hasattr(check, "message"):
-                        print(f"- {check.message}")
+                        logger.info(f"- Pending safety check: {check.message}")
                 
                 # Handle the acknowledged safety checks
                 status, data = self._handle_acknowledged_safety_checks()
@@ -713,7 +717,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         image_data = base64.b64decode(screenshot_base64)
         with open("output_image.png", "wb") as f:
             f.write(image_data)
-        print("* Saved image data.")
+        logger.info("* Saved image data.")
 
         # Now, create a new response with an acknowledged_safety_checks field
         # in the computer_call_output
@@ -753,9 +757,9 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         self._response_history.append(new_response)
         self._current_response = new_response
 
-    def extract_and_print_safety_checks(self, result):
+    def extract_and_log_safety_checks(self, result):
         """
-        Extract and print safety checks from a result.
+        Extract and log safety checks from a result.
         
         Args:
             result: A result dictionary from an action
@@ -767,8 +771,8 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         for check in checks:
             # If each check has a 'message' attribute with sub-parts
             if hasattr(check, "message"):
-                # Gather text for printing
-                print(f"Pending Safety Check: {check.message}")
+                # Gather text for logging
+                logger.info(f"Pending Safety Check: {check.message}")
         return checks
 
     def handle_action(self, action_input, stored_response=None, user_input=None):
@@ -784,7 +788,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             The final result of the action
         
         1) Call the agent.action method to handle commands or continue interactions
-        2) Print out agent prompts and safety checks
+        2) log out agent prompts and safety checks
         3) If there's user input needed, prompt
         4) If there's a pending computer call with safety checks, ask user for ack, then continue
         5) Repeat until no further action is required
@@ -792,7 +796,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         if self.desktop is None:
             raise ValueError("No desktop has been set for this agent.")
             
-        print(
+        logger.info(
             "Performing desktop action... see output_image.png to see screenshots "
             "OR connect to the VNC server to view actions in real time"
         )
@@ -814,11 +818,11 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                 for msg in messages:
                     if hasattr(msg, "content"):
                         text_parts = [part.text for part in msg.content if hasattr(part, "text")]
-                        print(f"Agent asks: {' '.join(text_parts)}")
+                        logger.info(f"Agent asks: {' '.join(text_parts)}")
 
                 user_says = input("Enter your response (or 'exit'/'quit'): ").strip().lower()
                 if user_says in ("exit", "quit"):
-                    print("Exiting as per user request.")
+                    logger.info("Exiting as per user request.")
                     return self.current_response
 
                 # Call action again with the user input
@@ -830,22 +834,22 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                 safety_checks = data["safety_checks"]
                 for check in safety_checks:
                     if hasattr(check, "message"):
-                        print(f"Pending Safety Check: {check.message}")
+                        logger.info(f"Pending Safety Check: {check.message}")
 
-                print("Please acknowledge the safety check(s) in order to proceed with the computer call.")
+                logger.info("Please acknowledge the safety check(s) in order to proceed with the computer call.")
                 ack = input("Type 'ack' to confirm, or 'exit'/'quit': ").strip().lower()
                 if ack in ("exit", "quit"):
-                    print("Exiting as per user request.")
+                    logger.info("Exiting as per user request.")
                     return self.current_response
                 if ack == "ack":
-                    print("Acknowledged. Proceeding with the computer call...")
+                    logger.info("Acknowledged. Proceeding with the computer call...")
                     # Call action again with acknowledged safety checks
                     status, data = self.action(acknowledged_safety_checks=True)
                     continue
 
             elif status == AgentStatus.ERROR:
                 # An error occurred
-                print(f"Error: {data}")
+                logger.error(f"Error: {data}")
                 return self.current_response
 
             # If we get here, the action is complete
