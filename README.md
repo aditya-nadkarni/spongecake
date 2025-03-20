@@ -22,6 +22,30 @@
   </p>
 </div>
 
+## Table of Contents
+1. [What is spongecake?](#what-is-spongecake)
+2. [Prerequisites](#prerequisites)
+3. [Quick Start](#quick-start)
+4. [\(Optional\) Building & Running the Docker Container](#optional-building--running-the-docker-container)
+5. [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop)
+6. [Documentation](#documentation)
+   1. [Desktop Client Documentation](#desktop-client-documentation)
+      - [Class: `Desktop`](#class-desktop)
+        - [start()](#start)
+        - [stop()](#stop)
+        - [exec()](#exec)
+      - [Desktop Actions](#desktop-actions)
+        - [click(x, y, click_type="left")](#clickx-y-click_typeleft)
+        - [scroll(x, y, scroll_x=0, scroll_y=0)](#scrollx-y-scroll_x0-scroll_y0)
+        - [keypress(keys: liststr)](#keypresskeys-liststr)
+        - [type_text(text)](#type_texttext)
+        - [get_screenshot()](#get_screenshot)
+      - [OpenAI Agent Integration](#openai-agent-integration)
+        - [action(...)](#actioninput_textnone-acknowledged_safety_checksfalse-ignore_safety_and_inputfalse-complete_handlernone-needs_input_handlernone-needs_safety_check_handlernone-error_handlernone)
+        - [Guide: Using the `action` Command](#-guide-using-the-action-command)
+7. [Contributing](#contributing)
+8. [Roadmap](#roadmap)
+9. [Team](#team)
 
 ## What is spongecake?
 
