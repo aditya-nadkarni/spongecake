@@ -191,10 +191,20 @@ If you want to manually build and run the included Docker image for a virtual de
    ```
 3. Enter the password when needed (set to "`secret`" in the default docker container).
 
----
 
-<br>
-<br>
+
+# Computer Use Agent Best Practices
+- Reliability is still not great for computer-use agents. If you want better reliability, the best thing is to write GOOD prompts and SPLIT up your meaty prompts/tasks into smaller chunks
+- Good prompts generally have the following properties: 
+  - **STOP** conditions (e.g., You should ALWAYS stop when you see the bottom of the page)
+  - **INTERACTION** conditions (e.g., You should NEVER scroll up)
+  - **RETURN** format/structure (e.g., Always return a JSON object with this structure 'example' : ['value1', 'value2'])
+  - See these properties in action in examples like `examples/linkedin_example.py` or `examples/amazon_example.py`
+- When building your agents with spongecake, we recommend having your VM pulled up in a VNC viewer so you can jump in and control the desktop if needed (see [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop))
+- Think about what tasks can be done concurrently. E.g., can multiple agents work together to fill out a form? Or what if agent 1 performs actions on page 1, agent 2 performs actions on page 2, and so forth? We're working on making it easier to spin up agents concurrently 
+
+
+
 
 # Documentation
 
@@ -766,6 +776,9 @@ Feel free to open issues for any feature requests or if you encounter any bugs! 
 - Support for browser-only envrionments
 - Integrating human-in-the-loop
 - (and much more...)
+
+## Benchmarks 
+[coming soon - will compare against Operator, WebVoyager etc]
 
 ## Team
 
