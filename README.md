@@ -10,10 +10,10 @@
 <h1 align="center">Open source SDK to launch OpenAI computer use agents</h1>
 <div style="text-align: center;">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-demo.gif" />
+    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-example.gif" />
     <img 
       alt="[coming soon] Shows a demo of spongecake in action" 
-      src="./static/linkedin-demo.gif" 
+      src="./static/linkedin-example.gif" 
       style="width: 100%; max-width: 700px;"
     />
   </picture>
@@ -103,10 +103,10 @@ You’ll need the following to get started (click to download):
 
 <div style="text-align: center;">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-demo.gif" />
+    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-example.gif" />
     <img 
       alt="[coming soon] Shows a demo of spongecake in action" 
-      src="./static/linkedin-demo.gif" 
+      src="./static/linkedin-example.gif" 
       style="width: 100%; max-width: 700px;"
     />
   </picture>
@@ -119,10 +119,10 @@ You’ll need the following to get started (click to download):
 
 <div style="text-align: center;">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./static/amazon-demo.gif" />
+    <source media="(prefers-color-scheme: dark)" srcset="./static/amazon-example.gif" />
     <img 
       alt="[coming soon] Shows a demo of spongecake in action" 
-      src="./static/amazon-demo.gif" 
+      src="./static/amazon-example.gif" 
       style="width: 100%; max-width: 700px;"
     />
   </picture>
