@@ -1,6 +1,7 @@
 import docker
 from docker.errors import NotFound, ImageNotFound, APIError
 import requests
+import socket
 import time
 import base64
 import logging
@@ -22,8 +23,35 @@ from .agent import Agent
 # Container Management Functions
 # -------------------------
 class Desktop:
+    """
+    Desktop class for managing a Docker container with a virtual desktop environment.
+    
+    The Desktop class handles container lifecycle (start, stop), and provides methods
+    to interact with the desktop environment (click, type, scroll, etc.).
+    
+    Port handling:
+    - Container ports are fixed at 5900 for VNC and 8000 for API
+    - Local ports start at the specified values (default: 5900 for VNC, 8000 for API)
+    - If a port conflict is detected during container startup, the system will
+      automatically increment the port number and retry until an available port is found
+    - This reactive approach handles concurrent situations where a port becomes
+      unavailable between the initial check and the actual container startup
+    """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = 8000, openai_api_key: str = None, create_agent: bool = True):
+    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = 8000, marionette_port: int = 3838, socat_port: int = 2828, openai_api_key: str = None, create_agent: bool = True):
+        """
+        Initialize a new Desktop instance.
+        
+        Args:
+            name: Name for the Docker container
+            docker_image: Docker image to use for the container
+            vnc_port: Starting local port for VNC (will auto-increment if in use during container startup)
+            api_port: Starting local port for API (will auto-increment if in use during container startup)
+            marionette_port: Starting local port for Marionette (will auto-increment if in use during container startup)
+            socat_port: Starting local port for Socat (will auto-increment if in use during container startup)
+            openai_api_key: OpenAI API key for agent functionality
+            create_agent: Whether to create an agent instance automatically
+        """
         # Set container info
         self.container_name = name  # Set container name for use in methods
         self.docker_image = docker_image # Set image name to start container
@@ -32,6 +60,8 @@ class Desktop:
         # Set up access ports
         self.vnc_port = vnc_port
         self.api_port = api_port
+        self.marionette_port = marionette_port
+        self.socat_port = socat_port
 
         # Create a Docker client from environment
         self.docker_client = docker.from_env()
@@ -51,11 +81,39 @@ class Desktop:
         if create_agent:
             self._agent = Agent(desktop=self, openai_api_key=openai_api_key)
 
+    def _increment_port(self, port):
+        """
+        Increment the port number by 1.
+        
+        Args:
+            port: The port number to increment
+            
+        Returns:
+            int: The incremented port number
+        """
+        port += 1
+        if port > 65535:  # Maximum port number
+            raise RuntimeError("No available ports found")
+        return port
+        
     def start(self):
         """
         Starts the container if it's not already running.
-        Maps the VNC port and API port.
+        Maps the VNC port, API port, Marionette port, and Socat port. If the specified ports are in use,
+        it will find available ports by incrementing the port number.
+        
+        Docker container always uses ports:
+        - 5900 for VNC
+        - 8000 for API
+        - 2828 for Marionette
+        - 2829 for Socat
         """
+        # Hardcoded container ports
+        CONTAINER_VNC_PORT = 5900
+        CONTAINER_API_PORT = 8000
+        CONTAINER_MARIONETTE_PORT = 2828
+        CONTAINER_SOCAT_PORT = 2829
+        
         try:
             # Check to see if the container already exists
             container = self.docker_client.containers.get(self.container_name)
@@ -76,40 +134,155 @@ class Desktop:
             try:
                 self.docker_client.images.pull(self.docker_image)
             except APIError as e:
-                logger.info("Failed to pull image. Attempting to start container...")
+                logger.warning("Failed to pull image. Attempting to start container...")
 
             # Try running a new container from the (hopefully just-pulled) image
-            try:
-                container = self.docker_client.containers.run(
-                    self.docker_image,
-                    detach=True,
-                    name=self.container_name,
-                    ports={
-                        f"{self.vnc_port}/tcp": self.vnc_port,
-                        f"{self.api_port}/tcp": self.api_port,
-                    }
-                )
-            except ImageNotFound:
-                # If for some reason the image is still not found locally,
-                # try pulling again explicitly and run once more.
-                logger.info(f"Pulling image '{self.docker_image}' now...")
+            max_retries = 10  # Maximum number of retries for port conflicts
+            retries = 0
+            
+            while retries < max_retries:
                 try:
-                    self.docker_client.images.pull(self.docker_image)
+                    container = self.docker_client.containers.run(
+                        self.docker_image,
+                        detach=True,
+                        name=self.container_name,
+                        ports={
+                            f"{CONTAINER_VNC_PORT}/tcp": self.vnc_port,
+                            f"{CONTAINER_API_PORT}/tcp": self.api_port,
+                            f"{CONTAINER_MARIONETTE_PORT}/tcp": self.marionette_port,
+                            f"{CONTAINER_SOCAT_PORT}/tcp": self.socat_port,
+                        }
+                    )
+                    # If we get here, the container started successfully
+                    break
+                    
                 except APIError as e:
-                    raise RuntimeError(
-                        f"Failed to find or pull image '{self.docker_image}'. Unable to start container."
-                        f"Docker reported: {str(e)}"
-                    ) from e
+                    error_message = str(e)
+                    if ("driver failed programming external connectivity on endpoint" in error_message and 
+                        "port is already allocated" in error_message):
+                        # Port conflict detected
+                        if "0.0.0.0:" + str(self.vnc_port) in error_message:
+                            # VNC port conflict
+                            old_port = self.vnc_port
+                            self.vnc_port = self._increment_port(self.vnc_port)
+                            logger.info(f"VNC port {old_port} is in use, trying port {self.vnc_port}")
+                        elif "0.0.0.0:" + str(self.api_port) in error_message:
+                            # API port conflict
+                            old_port = self.api_port
+                            self.api_port = self._increment_port(self.api_port)
+                            logger.info(f"API port {old_port} is in use, trying port {self.api_port}")
+                        elif "0.0.0.0:" + str(self.marionette_port) in error_message:
+                            # Marionette port conflict
+                            old_port = self.marionette_port
+                            self.marionette_port = self._increment_port(self.marionette_port)
+                            logger.info(f"Marionette port {old_port} is in use, trying port {self.marionette_port}")
+                        elif "0.0.0.0:" + str(self.socat_port) in error_message:
+                            # Socat port conflict
+                            old_port = self.socat_port
+                            self.socat_port = self._increment_port(self.socat_port)
+                            logger.info(f"Socat port {old_port} is in use, trying port {self.socat_port}")
+                        else:
+                            # Unknown port conflict, increment all ports
+                            old_vnc = self.vnc_port
+                            old_api = self.api_port
+                            old_marionette = self.marionette_port
+                            old_socat = self.socat_port
+                            self.vnc_port = self._increment_port(self.vnc_port)
+                            self.api_port = self._increment_port(self.api_port)
+                            self.marionette_port = self._increment_port(self.marionette_port)
+                            self.socat_port = self._increment_port(self.socat_port)
+                            logger.info(f"Port conflict detected, trying new ports: VNC={self.vnc_port}, API={self.api_port}, Marionette={self.marionette_port}, Socat={self.socat_port}")
+                        
+                        # Increment retry counter
+                        retries += 1
+                        
+                        # If we've reached the container name already exists, remove it
+                        try:
+                            existing = self.docker_client.containers.get(self.container_name)
+                            existing.remove(force=True)
+                            logger.info(f"Removed existing container '{self.container_name}'")
+                        except NotFound:
+                            pass
+                    else:
+                        # Other API error, not port-related
+                        raise
+                        
+                except ImageNotFound:
+                    # If for some reason the image is still not found locally,
+                    # try pulling again explicitly and run once more.
+                    logger.info(f"Pulling image '{self.docker_image}' now...")
+                    try:
+                        self.docker_client.images.pull(self.docker_image)
+                    except APIError as e:
+                        raise RuntimeError(
+                            f"Failed to find or pull image '{self.docker_image}'. Unable to start container."
+                            f"Docker reported: {str(e)}"
+                        ) from e
 
-                container = self.docker_client.containers.run(
-                    self.docker_image,
-                    detach=True,
-                    name=self.container_name,
-                    ports={
-                        f"{self.vnc_port}/tcp": self.vnc_port,
-                        f"{self.api_port}/tcp": self.api_port,
-                    }
-                )
+                    # Try one more time after pulling, but still handle potential port conflicts
+                    try:
+                        container = self.docker_client.containers.run(
+                            self.docker_image,
+                            detach=True,
+                            name=self.container_name,
+                            ports={
+                                f"{CONTAINER_VNC_PORT}/tcp": self.vnc_port,
+                                f"{CONTAINER_API_PORT}/tcp": self.api_port,
+                                f"{CONTAINER_MARIONETTE_PORT}/tcp": self.marionette_port,
+                                f"{CONTAINER_SOCAT_PORT}/tcp": self.socat_port,
+                            }
+                        )
+                        break  # Success, exit the retry loop
+                    except APIError as port_error:
+                        # Check if this is a port conflict error
+                        error_message = str(port_error)
+                        if ("driver failed programming external connectivity on endpoint" in error_message and 
+                            "port is already allocated" in error_message):
+                            # Handle port conflicts the same way as in the main loop
+                            if "0.0.0.0:" + str(self.vnc_port) in error_message:
+                                old_port = self.vnc_port
+                                self.vnc_port = self._increment_port(self.vnc_port)
+                                logger.info(f"VNC port {old_port} is in use, trying port {self.vnc_port}")
+                            elif "0.0.0.0:" + str(self.api_port) in error_message:
+                                old_port = self.api_port
+                                self.api_port = self._increment_port(self.api_port)
+                                logger.info(f"API port {old_port} is in use, trying port {self.api_port}")
+                            elif "0.0.0.0:" + str(self.marionette_port) in error_message:
+                                old_port = self.marionette_port
+                                self.marionette_port = self._increment_port(self.marionette_port)
+                                logger.info(f"Marionette port {old_port} is in use, trying port {self.marionette_port}")
+                            elif "0.0.0.0:" + str(self.socat_port) in error_message:
+                                old_port = self.socat_port
+                                self.socat_port = self._increment_port(self.socat_port)
+                                logger.info(f"Socat port {old_port} is in use, trying port {self.socat_port}")
+                            else:
+                                # Unknown port conflict, increment all ports
+                                old_vnc = self.vnc_port
+                                old_api = self.api_port
+                                old_marionette = self.marionette_port
+                                old_socat = self.socat_port
+                                self.vnc_port = self._increment_port(self.vnc_port)
+                                self.api_port = self._increment_port(self.api_port)
+                                self.marionette_port = self._increment_port(self.marionette_port)
+                                self.socat_port = self._increment_port(self.socat_port)
+                                logger.info(f"Port conflict detected, trying new ports: VNC={self.vnc_port}, API={self.api_port}, Marionette={self.marionette_port}, Socat={self.socat_port}")
+                            
+                            # Increment retry counter
+                            retries += 1
+                            
+                            # If we've reached the container name already exists, remove it
+                            try:
+                                existing = self.docker_client.containers.get(self.container_name)
+                                existing.remove(force=True)
+                                logger.info(f"Removed existing container '{self.container_name}'")
+                            except NotFound:
+                                pass
+                        else:
+                            # Other API error, not port-related
+                            raise
+            
+            if retries >= max_retries:
+                raise RuntimeError(f"Failed to start container after {max_retries} attempts due to port conflicts")
 
         # Give the container a brief moment to initialize its services
         time.sleep(2)
@@ -373,9 +546,20 @@ class Desktop:
                 "error": data
             }
 
+    def get_page_html(self, query="return document.documentElement.outerHTML;"):
+        """
+        Get the HTML content of the currently displayed webpage using Marionette.
+        
+        Args:
+            query: JavaScript query to retrieve the HTML content. Defaults to retrieving the full DOM HTML.
+        
+        Returns:
+            str: The HTML content of the current page, or an error message if retrieval fails.
+        """
+        return self.get_agent().get_page_html(query)
             
     def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
-              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, **kwargs):
+              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, **kwargs):
         """
         New and improved action command: Execute an action in the desktop environment. This method delegates to the agent's action method.
         
@@ -438,7 +622,9 @@ class Desktop:
             complete_handler=complete_handler,
             needs_input_handler=needs_input_handler,
             needs_safety_check_handler=needs_safety_check_handler,
-            error_handler=error_handler
+            error_handler=error_handler,
+            tools=tools,
+            function_map=function_map
         )
 
     def extract_and_print_safety_checks(self, result):

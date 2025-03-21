@@ -226,13 +226,16 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             logger.error(f"Error determining if message needs input: {e}. Assuming input is needed.")
             return True
     
-    def computer_use_loop(self, response):
+    def computer_use_loop(self, response, custom_tools=None, function_map=None):
         """
         Run the loop that executes computer actions until no 'computer_call' is found,
         handling pending safety checks BEFORE actually executing the call.
+        Also handles function calls like get_page_html.
         
         Args:
             response: A response object from the OpenAI API.
+            custom_tools: Optional list of additional tool definitions to include
+            function_map: Optional dictionary mapping function names to callable functions
             
         Returns:
             (response, messages, safety_checks, pending_call)
@@ -246,6 +249,48 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         """
         if self.desktop is None:
             raise ValueError("No desktop has been set for this agent.")
+            
+        # Check for function calls and handle them
+        function_calls = [item for item in response.output if item.type == "function_call"]
+        if function_calls:
+            import json
+            input_messages = []
+            
+            for tool_call in function_calls:
+                name = tool_call.name
+                logger.info(f"* Function call: {name}")
+                args = json.loads(tool_call.arguments) if hasattr(tool_call, 'arguments') and tool_call.arguments else {}
+                
+                # Dispatch to the appropriate function
+                if name == "get_page_html":
+                    result = self.get_page_html(**args)
+                elif function_map and name in function_map:
+                    # Use the provided function map for custom functions
+                    logger.info(f"--> Calling function: {name}, with arguments: {args}")
+                    result = function_map[name](**args)
+                else:
+                    result = f"Function {name} not implemented"
+                    
+                # Add the result to input messages
+                input_messages.append({
+                    "type": "function_call_output",
+                    "call_id": tool_call.call_id,
+                    "output": str(result)
+                })
+                
+            # Create a new response with the function results
+            new_response = self._create_response(
+                input_data=input_messages,
+                previous_response_id=response.id,
+                custom_tools=custom_tools
+            )
+            
+            # Add to response history
+            self._response_history.append(new_response)
+            self._current_response = new_response
+            
+            # Continue the loop with the new response
+            return self.computer_use_loop(new_response, custom_tools=custom_tools, function_map=function_map)
         
         # Identify all message items (the agent wants text input)
         messages = [item for item in response.output if item.type == "message"]
@@ -293,32 +338,22 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         logger.info("* Saved image data.")
 
         # Now send that screenshot back as `computer_call_output`
-        new_response = self.openai_client.responses.create(
-            model="computer-use-preview",
+        call_output = self._build_input_dict(
+            call_id=computer_call.call_id,
+            output={
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{screenshot_base64}"
+            }
+        )
+        
+        new_response = self._create_response(
+            input_data=call_output,
             previous_response_id=response.id,
-            tools=[
-                {
-                    "type": "computer_use_preview",
-                    "display_width": 1024,
-                    "display_height": 768,
-                    "environment": "linux"
-                }
-            ],
-            input=[
-                {
-                    "call_id": computer_call.call_id,
-                    "type": "computer_call_output",
-                    "output": {
-                        "type": "input_image",
-                        "image_url": f"data:image/png;base64,{screenshot_base64}"
-                    }
-                }
-            ],
-            truncation="auto"
+            custom_tools=custom_tools
         )
 
         # Recurse with the updated response
-        return self.computer_use_loop(new_response)
+        return self.computer_use_loop(new_response, custom_tools=custom_tools, function_map=function_map)
 
     @property
     def current_response(self):
@@ -366,7 +401,8 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         self._error = None
         
     def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
-               complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None):
+               complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None,
+               tools=None, function_map=None):
         """
         Execute an action in the desktop environment. This method handles different scenarios:
         - Starting a new conversation with a command
@@ -374,6 +410,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         - Acknowledging safety checks for a pending call
         - Automatically handling safety checks and input requests if ignore_safety_and_input is True
         - Using custom handlers for different statuses if provided
+        - Processing custom tools and functions provided by the user
         
         The method maintains state internally and returns a simple status and relevant data,
         or delegates to the appropriate handler if provided.
@@ -399,6 +436,10 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             error_handler: Function to handle ERROR status
                           Signature: (error_message) -> None
                           Returns: None (terminal state)
+            tools: List of additional tool definitions to make available to the model
+                  Each tool should be a dictionary in the OpenAI function calling format
+            function_map: Dictionary mapping function names to callable functions
+                         Used when the model calls a function by name
         
         Returns:
             Tuple of (status, data), where:
@@ -421,28 +462,28 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         try:
             # If we're ignoring safety and input, handle them automatically
             if ignore_safety_and_input:
-                status, data = self._handle_action_with_auto_responses(input_text)
+                status, data = self._handle_action_with_auto_responses(input_text, tools=tools, function_map=function_map)
                 # Even in auto mode, we should pass through handlers if provided
                 return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
-                                                        needs_safety_check_handler, error_handler)
+                                                        needs_safety_check_handler, error_handler, tools=tools, function_map=function_map)
             
             # Case 1: Acknowledging safety checks for a pending call
             if acknowledged_safety_checks and self._pending_call:
-                status, data = self._handle_acknowledged_safety_checks()
+                status, data = self._handle_acknowledged_safety_checks(custom_tools=tools, function_map=function_map)
                 return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
-                                                        needs_safety_check_handler, error_handler)
+                                                        needs_safety_check_handler, error_handler, tools=tools, function_map=function_map)
                 
             # Case 2: Continuing a conversation with user input
             if self._needs_input and input_text is not None:
-                status, data = self._handle_user_input(input_text)
+                status, data = self._handle_user_input(input_text, tools=tools, function_map=function_map)
                 return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
-                                                        needs_safety_check_handler, error_handler)
+                                                        needs_safety_check_handler, error_handler, tools=tools, function_map=function_map)
                 
             # Case 3: Starting a new conversation with a command
             if input_text is not None:
-                status, data = self._handle_new_command(input_text)
+                status, data = self._handle_new_command(input_text, tools=tools, function_map=function_map)
                 return self._process_result_with_handlers(status, data, complete_handler, needs_input_handler, 
-                                                        needs_safety_check_handler, error_handler)
+                                                        needs_safety_check_handler, error_handler, tools=tools, function_map=function_map)
                 
             # If we get here, there's no valid action to take
             self._error = "No valid action to take. Provide input text or acknowledge safety checks."
@@ -459,7 +500,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             return error_result
             
     def _process_result_with_handlers(self, status, data, complete_handler, needs_input_handler, 
-                                     needs_safety_check_handler, error_handler):
+                                     needs_safety_check_handler, error_handler, tools=None, function_map=None):
         """Process a result with the appropriate handler if provided."""
         # If handlers are provided, use them to handle the different statuses
         if status == AgentStatus.COMPLETE and complete_handler:
@@ -475,7 +516,9 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                     complete_handler=complete_handler,
                     needs_input_handler=needs_input_handler,
                     needs_safety_check_handler=needs_safety_check_handler,
-                    error_handler=error_handler
+                    error_handler=error_handler,
+                    tools=tools,
+                    function_map=function_map
                 )
             return status, data
             
@@ -488,7 +531,9 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                     complete_handler=complete_handler,
                     needs_input_handler=needs_input_handler,
                     needs_safety_check_handler=needs_safety_check_handler,
-                    error_handler=error_handler
+                    error_handler=error_handler,
+                    tools=tools,
+                    function_map=function_map
                 )
             return status, data
             
@@ -499,11 +544,11 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         # If no handler or handler didn't take action, return the result
         return status, data
             
-    def _handle_action_with_auto_responses(self, input_text):
+    def _handle_action_with_auto_responses(self, input_text, tools=None, function_map=None):
         """Handle an action with automatic responses to safety checks and input requests."""
         # Start with a new command if provided, or continue from current state
         if input_text is not None:
-            status, data = self._handle_new_command(input_text)
+            status, data = self._handle_new_command(input_text, tools=tools, function_map=function_map)
         elif self._current_response:
             # Continue from current state
             status, data = AgentStatus.COMPLETE, self._current_response
@@ -532,7 +577,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                         logger.info(f"- Pending safety check: {check.message}")
                 
                 # Handle the acknowledged safety checks
-                status, data = self._handle_acknowledged_safety_checks()
+                status, data = self._handle_acknowledged_safety_checks(custom_tools=tools, function_map=function_map)
                 
             elif status == AgentStatus.NEEDS_INPUT:
                 # Generate an automatic response
@@ -547,7 +592,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                 auto_response = self._auto_generate_input(question, self._input_history)
                 
                 # Continue with the auto-generated response
-                status, data = self._handle_user_input(auto_response)
+                status, data = self._handle_user_input(auto_response, tools=tools, function_map=function_map)
                 
             elif status == AgentStatus.ERROR:
                 # An error occurred
@@ -557,35 +602,40 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         self._error = f"Exceeded maximum iterations ({max_iterations}) in auto-response mode."
         return AgentStatus.ERROR, self._error
             
-    def _handle_new_command(self, command_text):
+    def _handle_new_command(self, command_text, tools=None, function_map=None):
         """Handle a new command from the user."""
         # Reset state for new conversation
         self._pending_call = None
         self._pending_safety_checks = []
         self._needs_input = []
+        self._function_map = function_map or {}
         
         # Create input and response
         new_input = self._build_input_dict("user", command_text)
         self._input_history.append(new_input)
         
-        response = self._create_response(new_input)
+        response = self._create_response(new_input, custom_tools=tools)
         self._response_history.append(response)
         self._current_response = response
         
         # Process the response
-        return self._process_response(response)
+        return self._process_response(response, custom_tools=tools, function_map=self._function_map)
         
-    def _handle_user_input(self, input_text):
+    def _handle_user_input(self, input_text, tools=None, function_map=None):
         """Handle user input in response to an agent request."""
         if not self._current_response:
             self._error = "No active conversation to continue."
             return AgentStatus.ERROR, self._error
             
+        # Update function map if provided
+        if function_map:
+            self._function_map = function_map
+            
         # Create input and response
         new_input = self._build_input_dict("user", input_text)
         self._input_history.append(new_input)
         
-        response = self._create_response(new_input, previous_response_id=self._current_response.id)
+        response = self._create_response(new_input, previous_response_id=self._current_response.id, custom_tools=tools)
         self._response_history.append(response)
         self._current_response = response
         
@@ -593,27 +643,76 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         self._needs_input = []
         
         # Process the response
-        return self._process_response(response)
+        return self._process_response(response, custom_tools=tools, function_map=self._function_map)
         
-    def _handle_acknowledged_safety_checks(self):
+    def _handle_acknowledged_safety_checks(self, custom_tools=None, function_map=None):
         """Handle acknowledged safety checks for a pending call."""
         if not self._current_response or not self._pending_call or not self._pending_safety_checks:
             self._error = "No pending call or safety checks to acknowledge."
             return AgentStatus.ERROR, self._error
             
+        # Update function map if provided
+        if function_map:
+            self._function_map = function_map
+            
         # Execute the call with acknowledged safety checks
-        self._execute_and_continue_call(self._current_response, self._pending_call, self._pending_safety_checks)
+        self._execute_and_continue_call(self._current_response, self._pending_call, self._pending_safety_checks, custom_tools=custom_tools)
         
         # Clear the pending call and safety checks
         self._pending_call = None
         self._pending_safety_checks = []
         
         # Process the updated response
-        return self._process_response(self._current_response)
+        return self._process_response(self._current_response, custom_tools=custom_tools, function_map=self._function_map)
         
-    def _process_response(self, response):
+    def get_page_html(self, query="return document.documentElement.outerHTML;", *args, **kwargs):
+        """
+        Get the HTML content of the currently displayed webpage using Marionette.
+        
+        Returns:
+            str: The HTML content of the current page, or an error message if retrieval fails.
+        """
+        logger.info("** get_page_html() CALLED!")
+        if self.desktop is None:
+            return "Error: No desktop has been set for this agent."
+            
+        # Check if marionette_driver is available
+        try:
+            import json
+            try:
+                from marionette_driver.marionette import Marionette
+            except ImportError:
+                return "Error: marionette_driver package is not installed. Please install it with 'pip install marionette_driver'."
+            
+            # Connect to Marionette through the port forwarded by socat
+            host = "localhost"
+            port = self.desktop.marionette_port  # Use the marionette_port directly
+            
+            logger.info(f"Connecting to Marionette server at {host}:{port}...")
+            try:
+                client = Marionette(host, port=port)
+                logger.info("Successfully connected to Marionette server.")
+
+                client.start_session()
+                # Execute JavaScript to get the full DOM HTML
+                html = client.execute_script(query)
+                
+                logger.info("Successfully retrieved page HTML")
+                return html
+            except ConnectionRefusedError:
+                return f"Error: Could not connect to Marionette server at {host}:{port}. Make sure Firefox is running with marionette enabled."
+            except Exception as e:
+                error_message = f"Error in Marionette connection: {str(e)}"
+                logger.error(error_message)
+                return error_message
+        except Exception as e:
+            error_message = f"Unexpected error retrieving page HTML: {str(e)}"
+            logger.error(error_message)
+            return error_message
+    
+    def _process_response(self, response, custom_tools=None, function_map=None):
         """Process a response from the API and determine the next action."""
-        output, messages, checks, pending_call = self.computer_use_loop(response)
+        output, messages, checks, pending_call = self.computer_use_loop(response, custom_tools=custom_tools, function_map=function_map)
         self._current_response = output
         
         # Update state based on the response
@@ -644,52 +743,128 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         # If we get here, the action is complete
         return AgentStatus.COMPLETE, output
 
-    def _build_input_dict(self, role, content, checks=None):
+    def _build_input_dict(self, role=None, content=None, call_id=None, call_type=None, output=None, safety_checks=None, acknowledged_safety_checks=None):
         """
         Helper method to build an input dictionary for the OpenAI API.
         
+        This method can build two types of input dictionaries:
+        1. A standard message input with role and content (when role is provided)
+        2. A computer_call_output input (when call_id and output are provided)
+        
         Args:
-            role: The role of the message (e.g., "user", "assistant")
-            content: The content of the message
-            checks: Optional safety checks
+            role: The role of the message (e.g., "user", "assistant") - for standard messages
+            content: The content of the message - for standard messages
+            call_id: The ID of the computer call - for computer_call_output
+            call_type: The type of call, defaults to "computer_call_output" if call_id is provided
+            output: The output data for computer_call_output
+            safety_checks: Optional safety checks for standard messages
+            acknowledged_safety_checks: Optional acknowledged safety checks for computer_call_output
             
         Returns:
             A dictionary with the message data
         """
-        payload = {"role": role, "content": content}
-        if checks:
-            payload["safety_checks"] = checks
-        return payload
+        # Handle standard message input
+        if role is not None:
+            payload = {"role": role, "content": content}
+            if safety_checks:
+                payload["safety_checks"] = safety_checks
+            return payload
+            
+        # Handle computer_call_output
+        elif call_id is not None:
+            payload = {
+                "call_id": call_id,
+                "type": call_type or "computer_call_output",
+                "output": output
+            }
+            
+            if acknowledged_safety_checks:
+                payload["acknowledged_safety_checks"] = [
+                    {
+                        "id": check.id,
+                        "code": check.code,
+                        "message": getattr(check, "message", "Safety check message")
+                    }
+                    for check in acknowledged_safety_checks
+                ]
+                
+            return payload
+            
+        else:
+            raise ValueError("Either role or call_id must be provided")
 
-    def _create_response(self, new_input, previous_response_id=None):
+    def _create_response(self, input_data, previous_response_id=None, reasoning=None, custom_tools=None):
         """
         Helper method to create a response from the OpenAI API.
         
         Args:
-            new_input: The input to send to the API
+            input_data: The input to send to the API. Can be a single input dict or a list of input dicts.
             previous_response_id: Optional ID of a previous response to continue from
+            reasoning: Optional reasoning configuration
+            custom_tools: Optional list of additional tool definitions to include
             
         Returns:
             A response object from the OpenAI API
         """
-        params = {
-            "model": "computer-use-preview",
-            "tools": [{
+        # Ensure input_data is a list
+        if not isinstance(input_data, list):
+            input_data = [input_data]
+            
+        # Define default tools
+        default_tools = [
+            {
                 "type": "computer_use_preview",
                 "display_width": 1024,
                 "display_height": 768,
                 "environment": "linux"
-            }],
-            "input": [new_input],
+            },
+            # {
+            #     "type": "function",
+            #     "name": "get_page_html",
+            #     "description": "Get the full HTML content of the currently displayed webpage. This is generally better than scrolling to see all content when you need the full context of a webpage.",
+            #     "parameters": {
+            #         "type": "object",
+            #         "properties": {},
+            #         "required": [],
+            #         "additionalProperties": False
+            #     }
+            # }
+        ]
+        
+        # Add custom tools if provided
+        tools = default_tools.copy()
+        if custom_tools:
+            tools.extend(custom_tools)
+
+        params = {
+            "model": "computer-use-preview",
+            "tools": tools,
+            "input": input_data,
             "truncation": "auto",
         }
-        if previous_response_id is None:
+        
+        # Add reasoning if provided or if no previous_response_id
+        if reasoning:
+            params["reasoning"] = reasoning
+        elif previous_response_id is None:
             params["reasoning"] = {"generate_summary": "concise"}
-        else:
+            
+        # Add previous_response_id if provided
+        if previous_response_id:
             params["previous_response_id"] = previous_response_id
-        return self.openai_client.responses.create(**params)
+            
+        try:
+            return self.openai_client.responses.create(**params)
+        except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            logger.error(f"Error creating response: {str(e)}")
+            logger.error(f"Error code: {getattr(e, 'code', 'N/A')}")
+            logger.error(f"Error details: {getattr(e, 'json', {})}")
+            logger.error(f"Stacktrace:\n{error_traceback}")
+            raise
 
-    def _execute_and_continue_call(self, input, computer_call, safety_checks):
+    def _execute_and_continue_call(self, input, computer_call, safety_checks, custom_tools=None, function_map=None):
         """
         Helper for 'action': directly executes a 'computer_call' after user acknowledged
         safety checks. Then performs the screenshot step, sending 'acknowledged_safety_checks'
@@ -699,6 +874,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             input: The input response object
             computer_call: The computer call to execute
             safety_checks: The safety checks that were acknowledged
+            custom_tools: Optional list of additional tool definitions to include
         """
         if self.desktop is None:
             raise ValueError("No desktop has been set for this agent.")
@@ -716,36 +892,19 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
 
         # Now, create a new response with an acknowledged_safety_checks field
         # in the computer_call_output
-        new_response = self.openai_client.responses.create(
-            model="computer-use-preview",
+        call_output = self._build_input_dict(
+            call_id=computer_call.call_id,
+            output={
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{screenshot_base64}"
+            },
+            acknowledged_safety_checks=safety_checks
+        )
+        
+        new_response = self._create_response(
+            input_data=call_output,
             previous_response_id=input.id,
-            tools=[
-                {
-                    "type": "computer_use_preview",
-                    "display_width": 1024,
-                    "display_height": 768,
-                    "environment": "linux"
-                }
-            ],
-            input=[
-                {
-                    "call_id": computer_call.call_id,
-                    "type": "computer_call_output",
-                    "acknowledged_safety_checks": [
-                        {
-                            "id": check.id,
-                            "code": check.code,
-                            "message": getattr(check, "message", "Safety check message")
-                        }
-                        for check in safety_checks
-                    ],
-                    "output": {
-                        "type": "input_image",
-                        "image_url": f"data:image/png;base64,{screenshot_base64}"
-                    }
-                }
-            ],
-            truncation="auto"
+            custom_tools=custom_tools,
         )
         
         # Add to response history

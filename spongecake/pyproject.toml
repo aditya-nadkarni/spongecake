@@ -18,6 +18,7 @@ dependencies = [
   "docker>=6.0.0",
   "openai>=1.66.3",
   "python-dotenv>=0.17.1",
+  "marionette-driver>=3.0.0",
 ]
 
 # Optional: Additional project metadata

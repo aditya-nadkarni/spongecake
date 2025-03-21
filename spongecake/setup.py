@@ -15,6 +15,7 @@ setup(
         "openai>=1.66.3",
         "python-dotenv",  # If you're using dotenv, for example
         "requests",
+        "marionette-driver>=3.0.0",  # For Firefox browser automation
         # etc.
     ],
     classifiers=[

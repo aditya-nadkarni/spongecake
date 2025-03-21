@@ -79,6 +79,7 @@ def main():
     print('  > auto:Fill out the form at https://bit.ly/3RiWH76, CBP\'s website')
     print('Note: Begin prompt with \"auto\" to run without any interactions - use carefully')
 
+    user_prompt = input(">prompt: ").strip()
     # Check if auto mode is requested
     auto_mode = False
     user_prompt = input("> prompt: ").strip()
