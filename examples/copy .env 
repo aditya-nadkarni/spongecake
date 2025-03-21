@@ -1,0 +1,2 @@
+PORT="8000" # DEFAULT PORT 
+OPENAI_API_KEY="your-openai-key"

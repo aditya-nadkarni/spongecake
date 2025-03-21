@@ -18,7 +18,7 @@
     />
   </picture>
   <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
-    Using spongecake to automate linkedin prospecting (see test/linkedin_test.py)
+    Using spongecake to automate linkedin prospecting (see examples/linkedin_example.py)
   </p>
 </div>
 
@@ -28,6 +28,7 @@
 3. [Quick Start](#quick-start)
 4. [Demos](#demos)
     1. [Linkedin Prospecting](#linkedin-prospecting)
+    2. [Amazon Shopping](#amazon-shopping)
 5. [\(Optional\) Building & Running the Docker Container](#optional-building--running-the-docker-container)
 6. [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop)
 7. [Documentation](#documentation)
@@ -69,7 +70,7 @@ You’ll need the following to get started (click to download):
 1. **Clone the repo** (if you haven’t already):
    ```bash
    git clone https://github.com/aditya-nadkarni/spongecake.git
-   cd spongecake/test
+   cd spongecake/examples
    ```
 2. **Set up a Python virtual environment and install the spongecake package**:
    ```bash
@@ -80,19 +81,19 @@ You’ll need the following to get started (click to download):
    python3 -m pip install --upgrade dotenv
    python3 -m pip install --upgrade openai  # Make sure you have the latest version of openai for the responses API
    ```
-3. **Run the test script**:  
+3. **Run the example script**:  
    ```bash
-   cd test # If needed
+   cd examples # If needed
    ```
    ```bash
-   python3 test.py
+   python3 example.py
    ```
-   Feel free to edit the `test.py` script to try out your own commands.  
+   Feel free to edit the `example.py` script to try out your own commands.  
    <br>
    > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
 
 4. **Create your own scripts**:
-  The test script is largely for demonstration purposes. To make this work for own use cases, create your own scripts using the SDK or integrate it into your own systems.
+  The example script is largely for demonstration purposes. To make this work for own use cases, create your own scripts using the SDK or integrate it into your own systems.
 
 ---
 
@@ -110,7 +111,39 @@ You’ll need the following to get started (click to download):
     />
   </picture>
   <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
-    Using spongecake to automate linkedin prospecting (see test/linkedin_test.py)
+    Using spongecake to automate linkedin prospecting (see examples/linkedin_example.py)
+  </p>
+</div>
+
+## Amazon Shopping 
+
+<div style="text-align: center;">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./static/amazon-demo.gif" />
+    <img 
+      alt="[coming soon] Shows a demo of spongecake in action" 
+      src="./static/amazon-demo.gif" 
+      style="width: 100%; max-width: 700px;"
+    />
+  </picture>
+  <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
+    Using spongecake to automate amazon shopping (see examples/amazon_example.py)
+  </p>
+</div>
+
+## Data Entry 
+
+<div style="text-align: center;">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./static/data-entry-example.gif" />
+    <img 
+      alt="[coming soon] Shows a demo of spongecake in action "
+      src="./static/data-entry-example.gif" 
+      style="width: 100%; max-width: 700px;"
+    />
+  </picture>
+  <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
+    Using spongecake to automate data entry (see examples/data_entry_example.py)
   </p>
 </div>
 
