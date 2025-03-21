@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     curl wget git nano xterm \
     # Screenshot utilities
     imagemagick \
+    socat \
     # Remove unneeded dependencies and clean up
     && apt-get remove -y light-locker xfce4-screensaver xfce4-power-manager || true \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -33,20 +34,28 @@ USER root
 RUN echo 'pref("ui.caretBlinkTime", 0);' > /usr/lib/firefox-esr/defaults/pref/local-settings.js
 
 # Create non-root user and set that as the working directory
-RUN useradd -ms /bin/bash myuser     && echo "myuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+RUN useradd -ms /bin/bash myuser && echo "myuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER myuser
 WORKDIR /home/myuser
+
+# Create a default Firefox profile with Marionette settings
+RUN mkdir -p /home/myuser/.mozilla/firefox && \
+    echo 'user_pref("marionette.accept_remote_connections", true);' >> /home/myuser/.mozilla/firefox/user.js && \
+    echo 'user_pref("marionette.port", 2828);' >> /home/myuser/.mozilla/firefox/user.js && \
+    echo 'user_pref("marionette.host", "127.0.0.1");' >> /home/myuser/.mozilla/firefox/user.js
 
 # Set VNC password to ("secret")
 RUN x11vnc -storepasswd secret /home/myuser/.vncpass
 
+# Expose the VNC, Firefox Marionette, and socat ports
 EXPOSE 5900
+EXPOSE 2828
+EXPOSE 3838
 
 CMD Xvfb :99 -screen 0 1280x720x24 & \
     export DISPLAY=:99 && \
-    # Start XFCE4 session
     startxfce4 & \
-    # Start x11vnc with no password (local usage only)
     x11vnc -display :99 -N -forever -shared -rfbauth /home/myuser/.vncpass -rfbport 5900 & \
-    # Keep container alive
+    firefox-esr -marionette & \
+    socat TCP-LISTEN:3838,fork TCP:127.0.0.1:2828 & \
     tail -f /dev/null
