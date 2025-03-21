@@ -26,9 +26,11 @@
 1. [What is spongecake?](#what-is-spongecake)
 2. [Prerequisites](#prerequisites)
 3. [Quick Start](#quick-start)
-4. [\(Optional\) Building & Running the Docker Container](#optional-building--running-the-docker-container)
-5. [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop)
-6. [Documentation](#documentation)
+4. [Demos](#demos)
+    1. [Linkedin Prospecting](#linkedin-prospecting)
+5. [\(Optional\) Building & Running the Docker Container](#optional-building--running-the-docker-container)
+6. [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop)
+7. [Documentation](#documentation)
    1. [Desktop Client Documentation](#desktop-client-documentation)
       - [Class: `Desktop`](#class-desktop)
         - [start()](#start)
@@ -43,9 +45,9 @@
       - [OpenAI Agent Integration](#openai-agent-integration)
         - [action(...)](#actioninput_textnone-acknowledged_safety_checksfalse-ignore_safety_and_inputfalse-complete_handlernone-needs_input_handlernone-needs_safety_check_handlernone-error_handlernone)
         - [Guide: Using the `action` Command](#-guide-using-the-action-command)
-7. [Contributing](#contributing)
-8. [Roadmap](#roadmap)
-9. [Team](#team)
+8. [Contributing](#contributing)
+9. [Roadmap](#roadmap)
+10. [Team](#team)
 
 ## What is spongecake?
 
@@ -93,6 +95,26 @@ You’ll need the following to get started (click to download):
   The test script is largely for demonstration purposes. To make this work for own use cases, create your own scripts using the SDK or integrate it into your own systems.
 
 ---
+
+# Demos
+
+## LinkedIn Prospecting 
+
+<div style="text-align: center;">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-demo.gif" />
+    <img 
+      alt="[coming soon] Shows a demo of spongecake in action" 
+      src="./static/linkedin-demo.gif" 
+      style="width: 100%; max-width: 700px;"
+    />
+  </picture>
+  <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
+    Using spongecake to automate linkedin prospecting (see test/linkedin_test.py)
+  </p>
+</div>
+
+
 
 # (Optional) Building & Running the Docker Container
 
