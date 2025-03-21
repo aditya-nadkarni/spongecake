@@ -70,7 +70,6 @@ You’ll need the following to get started (click to download):
 1. **Clone the repo** (if you haven’t already):
    ```bash
    git clone https://github.com/aditya-nadkarni/spongecake.git
-   cd spongecake/examples
    ```
 2. **Set up a Python virtual environment and install the spongecake package**:
    ```bash
@@ -79,18 +78,26 @@ You’ll need the following to get started (click to download):
 
    python3 -m pip install --upgrade spongecake
    python3 -m pip install --upgrade dotenv
-   python3 -m pip install --upgrade openai  # Make sure you have the latest version of openai for the responses API
+   python3 -m pip install --upgrade openai  
    ```
-3. **Run the example script**:  
-   ```bash
-   cd examples # If needed
-   ```
-   ```bash
-   python3 example.py
-   ```
-   Feel free to edit the `example.py` script to try out your own commands.  
-   <br>
-   > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
+
+3. **Start docker, update your OpenAI keys, and run the example script**:  
+  Run docker desktop ([install here if needed](https://docs.docker.com/desktop/setup/install/mac-install/))
+
+    Update OpenAI key
+    ```bash
+    cd examples 
+    cp .env.example .env
+    ```
+    Then update OPENAI_API_KEY in the .env file to your OpenAI key in the API platform: https://platform.openai.com/settings (find API keys in the left nav bar)
+
+    Then run the example script: 
+    ```bash
+    python3 example.py
+    ```
+  Feel free to edit the `example.py` script to try out your own commands.  
+  <br>
+  > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
 
 4. **Create your own scripts**:
   The example script is largely for demonstration purposes. To make this work for own use cases, create your own scripts using the SDK or integrate it into your own systems.
