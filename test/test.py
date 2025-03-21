@@ -81,6 +81,7 @@ def main():
 
     # Check if auto mode is requested
     auto_mode = False
+    user_prompt = input("> prompt: ").strip()
     if user_prompt.lower().startswith("auto:"):
         auto_mode = True
         user_prompt = user_prompt[5:].strip()

@@ -51,7 +51,7 @@
 
 ## What is spongecake?
 
-**spongecake** is the easiest way to launch OpenAI-powered “computer use” agents. It simplifies:
+🍰 **spongecake** is the easiest way to launch OpenAI-powered “computer use” agents. It simplifies:
 - **Spinning up** a Docker container with a virtual desktop (including Xfce, VNC, etc.).
 - **Controlling** that virtual desktop programmatically using an SDK (click, scroll, keyboard actions).
 - **Integrating** with OpenAI to drive an agent that can interact with a real Linux-based GUI.
@@ -741,5 +741,5 @@ Feel free to open issues for any feature requests or if you encounter any bugs! 
 </div>
 
 <div align="center">
-Made with ❤️ in San Francisco
+Made with 🍰 in San Francisco
 </div>
