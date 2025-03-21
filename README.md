@@ -10,15 +10,15 @@
 <h1 align="center">Open source SDK to launch OpenAI computer use agents</h1>
 <div style="text-align: center;">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./static/spongecake-demo.gif" />
+    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-demo.gif" />
     <img 
       alt="[coming soon] Shows a demo of spongecake in action" 
-      src="./static/spongecake-demo.gif" 
+      src="./static/linkedin-demo.gif" 
       style="width: 100%; max-width: 700px;"
     />
   </picture>
   <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
-    Using spongecake to fill out a form 
+    Using spongecake to automate linkedin prospecting (see test/linkedin_test.py)
   </p>
 </div>
 
