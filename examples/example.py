@@ -67,10 +67,8 @@ def error_handler(error_message):
 
 def main():
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed
-    desktop = Desktop(name="newdesktop2")
+    desktop = Desktop(name="newdesktop")
     container = desktop.start()
-    print("🍰 spongecake container started:", container)
-    print("...\n")
 
     # Prompt user for action
     print('What would you like your agent to do? Below are some examples or write your own:')
