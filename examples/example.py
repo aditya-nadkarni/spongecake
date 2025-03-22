@@ -3,6 +3,7 @@ import logging
 from time import sleep
 from dotenv import load_dotenv
 from spongecake import Desktop, AgentStatus
+import subprocess
 
 # Configure logging - most logs in the SDK are INFO level logs
 logging.basicConfig(
@@ -66,6 +67,9 @@ def error_handler(error_message):
 # -------------------------
 
 def main():
+
+
+
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed
     desktop = Desktop(name="newdesktop")
     container = desktop.start()
@@ -84,6 +88,13 @@ def main():
         user_prompt = user_prompt[5:].strip()
         print("\n🤖 Auto mode enabled - safety checks and input requests will be handled automatically")
     
+    # Open VNC connection to see the desktop, password is 'secret' (only works on mac)
+    try:
+        print('Attempting to open VNC connection to view Mac desktop, password is "secret"...')
+        subprocess.run(["open", "vnc://localhost:5900"], check=True)
+    except Exception as e:
+        print(f"❌ Failed to open VNC connection: {e}")
+
     try:
         print(
             "\n👾 Performing desktop action... see output_image.png to see screenshots "

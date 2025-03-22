@@ -71,6 +71,15 @@ def main():
     container = desktop.start()
     print("🍰 spongecake container started:", container)
     print("...\n")
+
+
+    # Open VNC connection to see the desktop, password is 'secret' (only works on mac)
+    try:
+        print('Attempting to open VNC connection to view Mac desktop, password is "secret"...')
+        subprocess.run(["open", "vnc://localhost:5900"], check=True)
+    except Exception as e:
+        print(f"❌ Failed to open VNC connection: {e}")
+
     
     try:
         print(
