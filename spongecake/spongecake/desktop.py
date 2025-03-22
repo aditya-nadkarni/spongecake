@@ -284,6 +284,7 @@ class Desktop:
             if retries >= max_retries:
                 raise RuntimeError(f"Failed to start container after {max_retries} attempts due to port conflicts")
 
+            logger.info(f"🍰 spongecake container started: {container}    (VNC PORT: {self.vnc_port}; API PORT: {self.api_port}; Marionette PORT: {self.marionette_port}; Socat PORT: {self.socat_port})")
         # Give the container a brief moment to initialize its services
         time.sleep(2)
         return container
