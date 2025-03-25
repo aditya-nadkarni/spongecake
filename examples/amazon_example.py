@@ -3,6 +3,7 @@ import logging
 from time import sleep
 from dotenv import load_dotenv
 from spongecake import Desktop, AgentStatus
+import subprocess
 
 # Configure logging - most logs in the SDK are INFO level logs
 logging.basicConfig(
