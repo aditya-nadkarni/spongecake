@@ -326,10 +326,6 @@ class Desktop:
         Stops and removes the container.
         If host is set, this method is a no-op as we assume the container is managed elsewhere.
         """
-        # If host is set, we're connecting to a remote container - no need to stop anything
-        if self.host is not None:
-            logger.info(f"Host is set to {self.host}, skipping container stop")
-            return
             
         try:
             container = self.docker_client.containers.get(self.container_name)
