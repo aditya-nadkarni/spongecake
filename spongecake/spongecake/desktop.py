@@ -153,7 +153,7 @@ class Desktop:
                 logger.warning("Failed to pull image. Attempting to start container...")
 
             # Try running a new container from the (hopefully just-pulled) image
-            max_retries = 20  # Maximum number of retries for port conflicts
+            max_retries = 25  # Maximum number of retries for port conflicts
             retries = 0
             
             while retries < max_retries:
