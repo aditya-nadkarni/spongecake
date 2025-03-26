@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spongecake"
-version = "0.1.7"
+version = "0.1.8"
 description = "Spongecake is the easiest way to launch OpenAI computer use agents."
 authors = [
   { name = "Terrell Marshall", email = "terrell@passage-team.com" },
