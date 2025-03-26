@@ -36,11 +36,10 @@
 4. [Demos](#demos)
     1. [Linkedin Prospecting](#linkedin-prospecting)
     2. [Amazon Shopping](#amazon-shopping)
-5. [\(Optional\) Building & Running the Docker Container](#optional-building--running-the-docker-container)
-6. [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop)
-7. [Contributing](#contributing)
-8. [Roadmap](#roadmap)
-9. [Team](#team)
+    3. [Form Filling](#form-filling)
+5. [Contributing](#contributing)
+6. [Roadmap](#roadmap)
+7. [Team](#team)
 
 ## What is spongecake?
 
@@ -91,10 +90,6 @@ See [full documentation](https://docs.spongecake.ai/quickstart)
   Feel free to edit the `example.py` script to try out your own commands.  
   <br>
   > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
-
-4. **Create your own scripts**:
-  The example script is largely for demonstration purposes. To make this work for own use cases, create your own scripts using the SDK or integrate it into your own systems.
-
 ---
 
 # Demos
@@ -131,7 +126,7 @@ See [full documentation](https://docs.spongecake.ai/quickstart)
   </p>
 </div>
 
-## Data Entry 
+## Form Filling 
 
 <div style="text-align: center;">
   <picture>
@@ -143,65 +138,10 @@ See [full documentation](https://docs.spongecake.ai/quickstart)
     />
   </picture>
   <p style="font-size: 1.2em; margin-top: 10px; text-align: center; color: gray;">
-    Using spongecake to automate data entry (see examples/data_entry_example.py)
+    Using spongecake to automate form filling (see examples/data_entry_example.py)
   </p>
 </div>
 
-
-
-# (Optional) Building & Running the Docker Container
-
-If you want to manually build and run the included Docker image for a virtual desktop environment you can follow these steps. To make your own changes to the docker container, fork the repository and edit however you need. This is perfect for adding dependencies specific to your workflows.
-
-1. **Navigate to the Docker folder** (e.g., `cd spongecake/docker`).
-2. **Build the image**:
-   ```bash
-   docker build -t <name of your image> .
-   ```
-3. **Run the container**:
-   ```bash
-   docker run -d -p 5900:5900 --name <name of your container> <name of your image>
-   ```
-   - This starts a container that you name and exposes VNC on port **5900**.
-
-4. **Shell into the container** (optional):
-   ```bash
-   docker exec -it <name of your container> bash
-   ```
-   This is useful for debugging, installing extra dependencies, etc.
-
-5. You can then specify the name of your container / image when using the SDK
-
----
-
-# Connecting to the Virtual Desktop
-**If you're working on a mac**:
-1. Right click `Finder` and select `Connect to server...`  
-      OR  
-   In the `Finder` window, navigate to `Go > Connect to server...` in the menu bar
-2. Enter the VNC host and port - should be `vnc://localhost:5900` in the default container
-3. It will ask for a password, which will be set to "`secret`" in the default docker container
-4. Your mac will connect to the VNC server. You can view and control the container's desktop through here
-
-**Other options**:
-1. **Install a VNC Viewer**, such as [TigerVNC](https://tigervnc.org/) or [RealVNC](https://www.realvnc.com/en/connect/download/viewer/).
-2. **Open the VNC client** and connect to:
-   ```
-   localhost:5900
-   ```
-3. Enter the password when needed (set to "`secret`" in the default docker container).
-
-
-
-# Computer Use Agent Best Practices
-- Reliability is still not great for computer-use agents. If you want better reliability, the best thing is to write GOOD prompts and SPLIT up your meaty prompts/tasks into smaller chunks
-- Good prompts generally have the following properties: 
-  - **STOP** conditions (e.g., You should ALWAYS stop when you see the bottom of the page)
-  - **INTERACTION** conditions (e.g., You should NEVER scroll up)
-  - **RETURN** format/structure (e.g., Always return a JSON object with this structure 'example' : ['value1', 'value2'])
-  - See these properties in action in examples like `examples/linkedin_example.py` or `examples/amazon_example.py`
-- When building your agents with spongecake, we recommend having your VM pulled up in a VNC viewer so you can jump in and control the desktop if needed (see [Connecting to the Virtual Desktop](#connecting-to-the-virtual-desktop))
-- Think about what tasks can be done concurrently. E.g., can multiple agents work together to fill out a form? Or what if agent 1 performs actions on page 1, agent 2 performs actions on page 2, and so forth? We're working on making it easier to spin up agents concurrently 
 
 # Appendix
 
