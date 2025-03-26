@@ -623,9 +623,20 @@ class Desktop:
             url: The URL to navigate to (e.g., "https://example.com")
         """
         logger.info(f"Action: goto URL: {url}")
-        # add `&` at the end to run Firefox in background and have `self.exec` return immediately
-        command = f"export DISPLAY={self.display} && firefox-esr -new-tab {url} &"
-        self.exec(command)
+        
+        # Prepare API request data
+        json_data = {"type": "goto", "url": url}
+        
+        # Prepare fallback command - add `&` at the end to run Firefox in background
+        fallback_cmd = f"export DISPLAY={self.display} && firefox-esr -new-tab {url} &"
+        
+        # Call API with fallback
+        return self._call_api_with_fallback(
+            endpoint="/action",
+            method="post",
+            json_data=json_data,
+            fallback_cmd=fallback_cmd
+        )
 
     # ----------------------------------------------------------------
     # WAIT

@@ -75,6 +75,7 @@ class ActionRequest(BaseModel):
     keys: Optional[List[str]] = None
     text: Optional[str] = None
     seconds: Optional[float] = None
+    url: Optional[str] = None
 
 # Helper functions to execute desktop actions
 def execute_command(command: List[str]) -> str:
@@ -210,6 +211,19 @@ def wait(seconds: float = 2.0) -> Dict[str, Any]:
     
     return {"status": "success", "action": "wait", "seconds": seconds}
 
+def goto(url: str) -> Dict[str, Any]:
+    """Open Firefox and navigate to the specified URL.
+    
+    Args:
+        url: The URL to navigate to (e.g., "https://example.com")
+    """
+    logger.info(f"Navigating to URL: {url}")
+    
+    # Use firefox-esr with new-tab option and run in background
+    execute_command(["bash", "-c", f"export DISPLAY=:99 && firefox-esr -new-tab {url} &"])
+    
+    return {"status": "success", "action": "goto", "url": url}
+
 def take_screenshot() -> Dict[str, Any]:
     """Take a screenshot and return it as base64.
     
@@ -318,6 +332,11 @@ async def api_action(action: ActionRequest):
     
     elif action_type == "screenshot":
         return take_screenshot()
+        
+    elif action_type == "goto":
+        if action.url is None:
+            raise HTTPException(status_code=400, detail="Goto action requires a URL")
+        return goto(action.url)
     
     else:
         raise HTTPException(status_code=400, detail=f"Unknown action type: {action_type}")
