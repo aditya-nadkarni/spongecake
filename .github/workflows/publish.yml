@@ -27,11 +27,14 @@ jobs:
           python -m pip install build twine
 
       - name: Build the package
-        run: python -m build
+        run: |
+          cd spongecake
+          python -m build
 
       - name: Publish to PyPI
         run: |
           python -m twine upload dist/*
+        working-directory: spongecake
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
