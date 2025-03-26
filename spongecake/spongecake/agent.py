@@ -83,37 +83,27 @@ class Agent:
         action_type = action.type
 
         try:
-            match action_type:
-            
-                case "click":
-                    x, y = int(action.x), int(action.y)
-                    self.desktop.click(x, y, action.button)
-
-                case "scroll":
-                    x, y = int(action.x), int(action.y)
-                    scroll_x, scroll_y = int(action.scroll_x), int(action.scroll_y)
-                    self.desktop.scroll(x, y, scroll_x=scroll_x, scroll_y=scroll_y)
-                
-                case "keypress":
-                    keys = action.keys
-                    self.desktop.keypress(keys)
-                
-                case "type":
-                    text = action.text
-                    self.desktop.type_text(text)
-                
-                case "wait":
-                    time.sleep(2)
-
-                case "screenshot":
-                    # Nothing to do as screenshot is taken at each turn
-                    screenshot_bytes = self.desktop.get_screenshot()
-                    return screenshot_bytes
-                
-                # Handle other actions here
-
-                case _:
-                    logger.info(f"Unrecognized action: {action}")
+            if action_type == "click":
+                x, y = int(action.x), int(action.y)
+                self.desktop.click(x, y, action.button)
+            elif action_type == "scroll":
+                x, y = int(action.x), int(action.y)
+                scroll_x, scroll_y = int(action.scroll_x), int(action.scroll_y)
+                self.desktop.scroll(x, y, scroll_x=scroll_x, scroll_y=scroll_y)
+            elif action_type == "keypress":
+                keys = action.keys
+                self.desktop.keypress(keys)
+            elif action_type == "type":
+                text = action.text
+                self.desktop.type_text(text)
+            elif action_type == "wait":
+                time.sleep(2)
+            elif action_type == "screenshot":
+                # Nothing to do as screenshot is taken at each turn
+                screenshot_bytes = self.desktop.get_screenshot()
+                return screenshot_bytes
+            else:
+                logger.info(f"Unrecognized action: {action}")
 
         except Exception as e:
             logger.error(f"Error handling action {action}: {e}")
