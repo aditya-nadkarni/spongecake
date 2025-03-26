@@ -448,6 +448,61 @@ def goto(self, url: str) -> None:
 **Returns**:
 - `None`
 
+## Web API
+
+Spongecake includes a lightweight web server that allows you to execute desktop actions through a REST API. This enables remote interaction with the Spongecake SDK without relying on Docker exec commands.
+
+### API Endpoints
+
+#### **`POST /api/action`**
+
+Executes a desktop action based on the provided parameters.
+
+**Request Body**:
+```json
+{
+  "type": "click",  // Action type (click, scroll, keypress, type, wait, screenshot)
+  "x": 100,         // X coordinate (for click and scroll actions)
+  "y": 200,         // Y coordinate (for click and scroll actions)
+  "button": "left", // Button type for click (left, middle, right)
+  "scroll_x": 0,    // Horizontal scroll amount
+  "scroll_y": 10,   // Vertical scroll amount
+  "keys": ["CTRL", "F"], // Keys to press (for keypress action)
+  "text": "Hello World"  // Text to type (for type action)
+}
+```
+
+**Response**:
+- For most actions: `{"status": "success"}`
+- For screenshot action: `{"status": "success", "screenshot": "base64_encoded_image"}`
+
+**Example Usage**:
+```bash
+# Click at coordinates (100, 200)
+curl -X POST http://localhost:8000/api/action \
+  -H "Content-Type: application/json" \
+  -d '{"type": "click", "x": 100, "y": 200, "button": "left"}'
+
+# Take a screenshot
+curl -X POST http://localhost:8000/api/action \
+  -H "Content-Type: application/json" \
+  -d '{"type": "screenshot"}'
+```
+
+### Port Configuration
+
+The API server runs on port 8000 by default. You can configure this using the `api_port` parameter when creating a Desktop instance:
+
+```python
+from spongecake import Desktop
+
+# Create a desktop with custom API port
+desktop = Desktop(api_port=8080)
+desktop.start()
+```
+
+---
+
 ## OpenAI Agent Integration
 
 ### **`action(input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False, complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None)`**

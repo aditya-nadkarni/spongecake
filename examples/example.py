@@ -67,9 +67,6 @@ def error_handler(error_message):
 # -------------------------
 
 def main():
-
-
-
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed
     desktop = Desktop(name="newdesktop")
     container = desktop.start()

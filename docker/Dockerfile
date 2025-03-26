@@ -44,6 +44,11 @@ ENV MOZ_MARIONETTE=1
 RUN pip3 install --upgrade pip
 
 # ---------------------------------------------------------
+# Install API server dependencies
+# ---------------------------------------------------------
+RUN pip3 install fastapi uvicorn pydantic
+
+# ---------------------------------------------------------
 # Firefox custom preference
 # ---------------------------------------------------------
 USER root
@@ -83,20 +88,30 @@ RUN xfconf-query \
  || true
 
 # ---------------------------------------------------------
-# Copy and enable startup script as root user
+# Copy API server and startup script as root user
 # ---------------------------------------------------------
 USER root
+COPY api_server.py /app/api_server.py
 COPY startup.sh /home/myuser/startup.sh
 RUN chmod +x /home/myuser/startup.sh
+RUN chmod +x /app/api_server.py
+RUN mkdir -p /app
 USER myuser
 WORKDIR /home/myuser
 
 # ---------------------------------------------------------
-# Expose VNC port
+# Expose ports
 # ---------------------------------------------------------
+# VNC port
 EXPOSE 5900
+# Marionette port
 EXPOSE 2828
+# Socat port
+EXPOSE 2829
+# Forwarded Marionette port
 EXPOSE 3838
+# API port
+EXPOSE 8000
 
 # ---------------------------------------------------------
 # Default command: run our startup script

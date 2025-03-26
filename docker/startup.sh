@@ -20,6 +20,13 @@ xfconf-query \
 # Start x11vnc server (password-protected)
 x11vnc -display :99 -N -forever -shared -rfbauth /home/myuser/.vncpass -rfbport 5900 &
 
+# Start Marionette server for Firefox
+export MOZ_MARIONETTE=1
+socat TCP-LISTEN:2829,fork TCP:localhost:2828 &
+
+# Start the Spongecake API server
+python3 /app/api_server.py &
+
 # Start Firefox with Marionette
 firefox-esr -marionette &
 
