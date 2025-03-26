@@ -64,12 +64,13 @@ class Desktop:
         self.marionette_port = marionette_port
         self.socat_port = socat_port
         self.host = host
+        self.container_started = False
         
-        # API base URL will be set after container starts and ports are finalized
+        # API base URL will be set based on host and ports
         self._update_api_base_url()
 
-        # Create a Docker client from environment
-        self.docker_client = docker.from_env()
+        # Create a Docker client from environment if we're not using a remote host
+        self.docker_client = docker.from_env() if host is None else None
 
         # Ensure OpenAI API key is available to use
         if openai_api_key is None:
@@ -109,8 +110,11 @@ class Desktop:
         """
         if self.host is not None:
             self.api_base_url = f"http://{self.host}:{self.api_port}"
+            # For remote hosts, we assume the container is already running
+            self.container_started = True
         else:
             self.api_base_url = None
+            # For local containers, we'll set this to True when start() is called
         
     def start(self):
         """
@@ -123,7 +127,14 @@ class Desktop:
         - 8000 for API
         - 2828 for Marionette
         - 2829 for Socat
+        
+        If host is set, this method is a no-op as we assume the container is managed elsewhere.
         """
+        # If host is set, we're connecting to a remote container - no need to start anything
+        if self.host is not None:
+            logger.info(f"Host is set to {self.host}, skipping container start")
+            return None
+            
         # Hardcoded container ports
         CONTAINER_VNC_PORT = 5900
         CONTAINER_API_PORT = 8000
@@ -302,6 +313,9 @@ class Desktop:
             
             # Update API base URL with the final port
             self._update_api_base_url()
+            
+            # Mark the container as started
+            self.container_started = True
 
             logger.info(f"🍰 spongecake container started: {container}    (VNC PORT: {self.vnc_port}; API PORT: {self.api_port}; Marionette PORT: {self.marionette_port}; Socat PORT: {self.socat_port})")
         # Give the container a brief moment to initialize its services
@@ -311,11 +325,19 @@ class Desktop:
     def stop(self):
         """
         Stops and removes the container.
+        If host is set, this method is a no-op as we assume the container is managed elsewhere.
         """
+        # If host is set, we're connecting to a remote container - no need to stop anything
+        if self.host is not None:
+            logger.info(f"Host is set to {self.host}, skipping container stop")
+            return
+            
         try:
             container = self.docker_client.containers.get(self.container_name)
             container.stop()
             container.remove()
+            # Mark the container as stopped
+            self.container_started = False
             logger.info(f"Container '{self.container_name}' stopped and removed.")
         except docker.errors.NotFound:
             logger.info(f"Container '{self.container_name}' not found.")
@@ -328,6 +350,14 @@ class Desktop:
     # RUN COMMANDS IN DESKTOP
     # ----------------------------------------------------------------
     def exec(self, command):
+        # If host is set, we can't use docker exec
+        if self.host is not None:
+            raise RuntimeError("Cannot execute commands directly when using a remote host. Use API calls instead.")
+        
+        # Ensure the container is started
+        if not self.container_started:
+            raise RuntimeError("Container not started. Call start() before executing commands.")
+        
         # Wrap docker exec
         container = self.docker_client.containers.get(self.container_name)
         # Use /bin/sh -c to execute shell commands
@@ -354,7 +384,7 @@ class Desktop:
         Returns:
             API response or exec result
         """
-        # If host is None or fallback_cmd is provided, use exec directly
+        # If host is None, use exec directly
         if self.host is None:
             if fallback_cmd:
                 logger.debug(f"Host is None, using exec directly: {fallback_cmd}")
@@ -362,7 +392,7 @@ class Desktop:
             else:
                 raise RuntimeError("No host specified for API call and no fallback command provided")
         
-        # Otherwise try API call with fallback to exec
+        # Otherwise try API call with fallback to exec if possible
         url = f"{self.api_base_url}{endpoint}"
         logger.debug(f"Calling API: {url} with data: {json_data}")
         
@@ -378,11 +408,13 @@ class Desktop:
             return response.json()
             
         except (requests.RequestException, ValueError) as e:
-            logger.warning(f"API call failed, falling back to exec: {str(e)}")
-            if fallback_cmd:
+            logger.warning(f"API call failed: {str(e)}")
+            # Only try fallback if we have a local container
+            if fallback_cmd and self.docker_client is not None and self.container_started:
+                logger.warning("Falling back to exec command")
                 return self.exec(fallback_cmd)
             else:
-                raise RuntimeError(f"API call failed and no fallback command provided: {str(e)}")
+                raise RuntimeError(f"API call failed and fallback not available: {str(e)}")
 
     # ----------------------------------------------------------------
     # CLICK
