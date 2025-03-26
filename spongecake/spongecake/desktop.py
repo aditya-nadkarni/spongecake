@@ -114,6 +114,7 @@ class Desktop:
             self.container_started = True
         else:
             self.api_base_url = None
+            self.api_base_url = f"http://{self.host}:{self.api_port}"
             # For local containers, we'll set this to True when start() is called
         
     def start(self):
@@ -135,6 +136,8 @@ class Desktop:
         CONTAINER_MARIONETTE_PORT = 2828
         CONTAINER_SOCAT_PORT = 2829
         
+        self.docker_client = docker.from_env()
+
         try:
             # Check to see if the container already exists
             container = self.docker_client.containers.get(self.container_name)
@@ -346,10 +349,6 @@ class Desktop:
     # RUN COMMANDS IN DESKTOP
     # ----------------------------------------------------------------
     def exec(self, command):
-        # If host is set, we can't use docker exec
-        if self.host is not None:
-            raise RuntimeError("Cannot execute commands directly when using a remote host. Use API calls instead.")
-        
         # Ensure the container is started
         if not self.container_started:
             raise RuntimeError("Container not started. Call start() before executing commands.")
