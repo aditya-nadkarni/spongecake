@@ -70,6 +70,7 @@ def main():
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed
     desktop = Desktop(name="newdesktop")
     container = desktop.start()
+    desktop.goto("https://www.amazon.com")
     print("🍰 spongecake container started:", container)
     print("...\n")
 
@@ -91,7 +92,7 @@ def main():
         
         user_prompt = f"""
             # AGENT INSTRUCTIONS #
-            Go to www.amazon.com
+            You are currently on www.amazon.com
 
             Search for 'sponge cake plush'
 

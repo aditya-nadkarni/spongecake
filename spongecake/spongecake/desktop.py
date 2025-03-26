@@ -454,6 +454,21 @@ class Desktop:
 
         # proc.stdout is now our base64-encoded screenshot
         return proc.stdout.strip()
+    
+    # ----------------------------------------------------------------
+    # GOTO URL
+    # ----------------------------------------------------------------
+    def goto(self, url: str) -> None:
+        """
+        Open Firefox in the container and navigate to the specified URL.
+        
+        Args:
+            url: The URL to navigate to (e.g., "https://example.com")
+        """
+        logger.info(f"Action: goto URL: {url}")
+        # add `&` at the end to run Firefox in background and have `self.exec` return immediately
+        command = f"export DISPLAY={self.display} && firefox-esr -new-tab {url} &"
+        self.exec(command)
 
     # -------------------------
     # Agent Integration
