@@ -547,45 +547,24 @@ class Desktop:
         json_data = {"type": "screenshot"}
         
         # Prepare fallback command
-        command = (
-            "export DISPLAY=:99 && "
-            "import -window root png:- | base64 -w 0"
+        fallback_cmd = f"export DISPLAY={self.display} && import -window root png:- | base64 -w 0"
+        
+        # Call API with fallback
+        response = self._call_api_with_fallback(
+            endpoint="/action",
+            method="post",
+            json_data=json_data,
+            fallback_cmd=fallback_cmd
         )
         
-        try:
-            # Try API endpoint first
-            response = self._call_api_with_fallback(
-                endpoint="/action",
-                method="post",
-                json_data=json_data,
-                fallback_cmd=None  # Don't use fallback_cmd here, we have custom fallback logic
-            )
-            
-            # If we get here, API call succeeded
-            if "screenshot" in response:
-                return response["screenshot"]
-            else:
-                logger.warning("API returned success but no screenshot data found")
-                # Fall through to fallback method
-        except Exception as e:
-            logger.warning(f"API screenshot call failed: {str(e)}")
-            # Fall through to fallback method
-            
-        # Fallback: Use direct docker exec command
-        logger.info("Falling back to direct docker exec for screenshot")
-        proc = subprocess.run(
-            ["docker", "exec", self.container_name, "bash", "-c", command],
-            capture_output=True,
-            text=True
-        )
-
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"Screenshot command failed:\nSTDERR: {proc.stderr}\n"
-            )
-
-        # proc.stdout is now our base64-encoded screenshot
-        return proc.stdout.strip()
+        # Extract screenshot data from response
+        if isinstance(response, dict) and "screenshot" in response:
+            return response["screenshot"]
+        elif isinstance(response, dict) and "result" in response:
+            # If the response comes from the fallback command
+            return response["result"]
+        else:
+            return None
     
     # ----------------------------------------------------------------
     # GOTO URL
