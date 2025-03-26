@@ -127,13 +127,7 @@ class Desktop:
         - 8000 for API
         - 2828 for Marionette
         - 2829 for Socat
-        
-        If host is set, this method is a no-op as we assume the container is managed elsewhere.
         """
-        # If host is set, we're connecting to a remote container - no need to start anything
-        if self.host is not None:
-            logger.info(f"Host is set to {self.host}, skipping container start")
-            return None
             
         # Hardcoded container ports
         CONTAINER_VNC_PORT = 5900
