@@ -38,7 +38,7 @@ class Desktop:
       unavailable between the initial check and the actual container startup
     """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = 8000, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True):
+    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True):
         """
         Initialize a new Desktop instance.
         
@@ -66,6 +66,16 @@ class Desktop:
         self.host = host
         self.container_started = False
         
+        # Display a warning if host is specified but api_port is using the default value
+        if self.host is not None and self.api_port is None:
+            logger.warning(
+                "⚠️ Defaulting to API port 8000. "
+                "When connecting to an existing container, you should explicitly set api_port "
+                "to match the actual port of the remote container."
+            )
+        if self.api_port is None:
+            self.api_port = 8000
+
         # API base URL will be set based on host and ports
         self._update_api_base_url()
 
@@ -113,9 +123,9 @@ class Desktop:
             # For remote hosts, we assume the container is already running
             self.container_started = True
         else:
-            self.api_base_url = None
-            self.api_base_url = f"http://{self.host}:{self.api_port}"
-            # For local containers, we'll set this to True when start() is called
+            # For local containers, we'll use localhost as the host
+            self.api_base_url = f"http://localhost:{self.api_port}"
+            # For local containers, we'll set container_started to True when start() is called
         
     def start(self):
         """
@@ -137,6 +147,9 @@ class Desktop:
         CONTAINER_SOCAT_PORT = 2829
         
         self.docker_client = docker.from_env()
+        if self.docker_client is None:
+            logger.warning("Docker client not available. Cannot start container.")
+            return
 
         try:
             # Check to see if the container already exists
@@ -328,6 +341,12 @@ class Desktop:
         """
             
         try:
+            self.docker_client = docker.from_env()
+
+            if self.docker_client is None:
+                logger.warning("Docker client not available. Cannot stop container.")
+                return
+                
             container = self.docker_client.containers.get(self.container_name)
             container.stop()
             container.remove()
@@ -349,6 +368,10 @@ class Desktop:
         if not self.container_started:
             raise RuntimeError("Container not started. Call start() before executing commands.")
         
+        # Ensure we have a Docker client
+        if self.docker_client is None:
+            raise RuntimeError("Docker client not available. Cannot execute commands.")
+            
         # Wrap docker exec
         container = self.docker_client.containers.get(self.container_name)
         # Use /bin/sh -c to execute shell commands
