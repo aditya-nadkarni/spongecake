@@ -58,6 +58,7 @@ You’ll need the following to get started (click to download):
 - [**OpenAI API Key**](https://platform.openai.com/)
 
 # Quick Start
+See [full documentation](https://docs.spongecake.ai/quickstart) 
 
 1. **Clone the repo** (if you haven’t already):
    ```bash
