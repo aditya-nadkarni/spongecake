@@ -28,22 +28,9 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/aditya-nadkarni/spongecake)
 [![GitHub stars](https://img.shields.io/github/stars/aditya-nadkarni/spongecake)](https://img.shields.io/github/stars/aditya-nadkarni/spongecake)
 
-
-## Table of Contents
-1. [What is spongecake?](#what-is-spongecake)
-2. [Prerequisites](#prerequisites)
-3. [Quick Start](#quick-start)
-4. [Demos](#demos)
-    1. [Linkedin Prospecting](#linkedin-prospecting)
-    2. [Amazon Shopping](#amazon-shopping)
-    3. [Form Filling](#form-filling)
-5. [Contributing](#contributing)
-6. [Roadmap](#roadmap)
-7. [Team](#team)
-
 ## What is spongecake?
 
-🍰 **spongecake** is the easiest way to launch OpenAI-powered “computer use” agents. It simplifies:
+🍰 **spongecake** is the easiest way to launch OpenAI-powered “computer use” agents that scrape, fill out forms, and interact with websites or local apps. It simplifies:
 - **Spinning up** a Docker container with a virtual desktop (including Xfce, VNC, etc.).
 - **Controlling** that virtual desktop programmatically using an SDK (click, scroll, keyboard actions).
 - **Integrating** with OpenAI to drive an agent that can interact with a real Linux-based GUI.
@@ -57,7 +44,6 @@ You’ll need the following to get started (click to download):
 - [**OpenAI API Key**](https://platform.openai.com/)
 
 # Quick Start
-See [full documentation](https://docs.spongecake.ai/quickstart) 
 
 1. **Clone the repo** (if you haven’t already):
    ```bash
@@ -91,6 +77,10 @@ See [full documentation](https://docs.spongecake.ai/quickstart)
   <br>
   > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
 ---
+
+# Documentation
+
+See [full documentation](https://docs.spongecake.ai/quickstart) for more details and examples.
 
 # Demos
 
