@@ -430,6 +430,24 @@ def get_screenshot(self) -> str:
 
 ---
 
+### **`goto(url)`**
+
+```python
+def goto(self, url: str) -> None:
+    """
+    Open Firefox in the container and navigate to the specified URL in a new tab.
+    """
+```
+
+**Arguments**:
+- **url** *(str)*: The URL to navigate to (e.g., `https://example.com`).
+
+**Behavior**:
+- Opens Firefox in the container and navigates to the specified URL in a new tab
+
+**Returns**:
+- `None`
+
 ## OpenAI Agent Integration
 
 ### **`action(input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False, complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None)`**
