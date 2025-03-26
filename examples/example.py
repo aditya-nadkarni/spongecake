@@ -68,7 +68,7 @@ def error_handler(error_message):
 
 def main():
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed
-    desktop = Desktop(name="newdesktop")
+    desktop = Desktop(name="newdesktop3")
     container = desktop.start()
 
     # Prompt user for action
@@ -88,7 +88,7 @@ def main():
     # Open VNC connection to see the desktop, password is 'secret' (only works on mac)
     try:
         print('Attempting to open VNC connection to view Mac desktop, password is "secret"...')
-        subprocess.run(["open", "vnc://localhost:5900"], check=True)
+        subprocess.run(["open", f"vnc://localhost:{desktop.vnc_port}"], check=True)
     except Exception as e:
         print(f"❌ Failed to open VNC connection: {e}")
 
