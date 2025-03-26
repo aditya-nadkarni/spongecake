@@ -147,6 +147,8 @@ class Desktop:
             else:
                 logger.info(f"Container '{self.container_name}' is already running.")
 
+            # Mark the container as started
+            self.container_started = True
         except NotFound:
             # The container does not exist yet. Create it and pull the image first.
             logger.info(f"⏰ Creating and starting a new container '{self.container_name}'...")
