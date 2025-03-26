@@ -489,6 +489,10 @@ curl -X POST http://localhost:8000/api/action \
   -d '{"type": "screenshot"}'
 ```
 
+> **⚠️ SECURITY WARNING**: The container's web server has no authentication or encryption by default. Anyone with network access to the API port can control the container. For security-sensitive applications or when running in production environments, you should:
+> - Implement proper authentication if API access is required
+> - Consider network isolation or firewall rules to restrict access
+
 ### Port Configuration
 
 The API server runs on port 8000 by default. You can configure this using the `api_port` parameter when creating a Desktop instance:
