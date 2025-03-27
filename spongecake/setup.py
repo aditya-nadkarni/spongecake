@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="spongecake",
-    version="0.1.8",
+    version="0.1.9",
     description="Open source SDK to launch OpenAI computer use agents",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -23,5 +23,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.10',
+    python_requires='>=3.9',
 )
