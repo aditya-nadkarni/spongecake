@@ -101,11 +101,11 @@ def run_agent_action(user_prompt, auto_mode=True):
     logs = start_container_if_needed(logs)
 
     # Attempt to open macOS VNC
-    try:
-        logs.append('Attempting to open VNC connection (password is "secret")...')
-        subprocess.run(["open", f"vnc://localhost:{desktop.vnc_port}"], check=True)
-    except Exception as e:
-        logs.append(f"❌ Failed to open VNC connection: {e}")
+    # try:
+    #     logs.append('Attempting to open VNC connection (password is "secret")...')
+    #     subprocess.run(["open", f"vnc://localhost:{desktop.vnc_port}"], check=True)
+    # except Exception as e:
+    #     logs.append(f"❌ Failed to open VNC connection: {e}")
 
     logs.append("\n👾 Performing desktop action...")
 
