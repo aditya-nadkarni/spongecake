@@ -131,23 +131,6 @@ function App() {
   width="1024"
   height="768"
   frameBorder="0"
-  onLoad={() => {
-    // Attempt to inject CSS if same-origin
-    const iframeDoc = document.getElementById("vncFrame").contentDocument;
-    if (iframeDoc) {
-      const style = iframeDoc.createElement("style");
-      style.innerHTML = `
-      #noVNC_control_bar,
-      #noVNC_control_bar_anchor,
-      #noVNC_logo {
-        display: none !important;
-        visibility: hidden !important;
-      }
-    `;
-
-      iframeDoc.head.appendChild(style);
-    }
-  }}
 />
 
             </div>
