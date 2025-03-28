@@ -85,7 +85,7 @@ def start_container_if_needed(logs=None):
         vnc_port=str(desktop.vnc_port)
     )
 
-    logs.append("Started noVNC server on http://localhost:6080/vnc.html")
+    logs.append(f"Started noVNC server on http://localhost:6080/vnc.html with vnc_port {desktop.vnc_port}")
     return logs
 
 ########################################
