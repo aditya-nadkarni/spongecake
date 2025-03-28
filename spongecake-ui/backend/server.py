@@ -1,6 +1,6 @@
-# server.py
 import logging
 import subprocess
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from spongecake import Desktop, AgentStatus
@@ -16,30 +16,48 @@ CORS(app)
 desktop = None
 
 ########################################
-# 1) HELPER: Start noVNC
+# 1) KILL ANY PROCESS LISTENING ON PORT
 ########################################
-def start_novnc_server(novnc_path="/Users/terrell/Coding Projects/spongecake/spongecake-ui/noVNC-1.6.0", port="6080", vnc_host="localhost", vnc_port="5900"):
+def kill_process_on_port(port):
+    """
+    A quick hacky way to free up 'port' on macOS/Linux by killing
+    any processes listening on that port.
+    NOTE: This won't work on Windows without a different command.
+    """
+    try:
+        # lsof -t -i :PORT returns the PIDs. xargs kill -9 kills them forcibly.
+        os.system(f"lsof -t -i tcp:{port} | xargs kill -9 2> /dev/null")
+        logging.info(f"Killed any process using TCP port {port}")
+    except Exception as e:
+        logging.warning(f"Failed to kill process on port {port}: {e}")
+
+########################################
+# 2) HELPER: Start noVNC
+########################################
+def start_novnc_server(
+    novnc_path="/Users/terrell/Coding Projects/spongecake/spongecake-ui/noVNC-1.6.0",
+    port="6080",
+    vnc_host="localhost",
+    vnc_port="5900"
+):
     """
     Launch websockify with noVNC as a background process.
-    Example:
-        cmd = [
-            "python", "-m", "websockify",
-            "--web", "/path/to/noVNC",
-            "6080",
-            "localhost:5900"
-        ]
     """
+    # First kill anything listening on 6080 to avoid "Address already in use"
+    kill_process_on_port(port)
+
     cmd = [
         "python", "-m", "websockify",
         "--web", novnc_path,
-        port,
+        str(port),
         f"{vnc_host}:{vnc_port}"
     ]
     process = subprocess.Popen(cmd)
+    logging.info(f"NoVNC process started on port {port} (PID={process.pid})")
     return process
 
 ########################################
-# 2) HELPER: Start container if needed
+# 3) HELPER: Start container if needed
 ########################################
 def start_container_if_needed(logs=None):
     """
@@ -66,12 +84,12 @@ def start_container_if_needed(logs=None):
         vnc_host="localhost",
         vnc_port=str(desktop.vnc_port)
     )
-    logs.append("Started noVNC server on http://localhost:6080/vnc.html")
 
+    logs.append("Started noVNC server on http://localhost:6080/vnc.html")
     return logs
 
 ########################################
-# 3) HELPER: Run the agent action
+# 4) HELPER: Run the agent action
 ########################################
 def run_agent_action(user_prompt, auto_mode=True):
     """
@@ -82,7 +100,7 @@ def run_agent_action(user_prompt, auto_mode=True):
     # Ensure container is running
     logs = start_container_if_needed(logs)
 
-    # Attempt to open macOS VNC in case user wants to see it
+    # Attempt to open macOS VNC
     try:
         logs.append('Attempting to open VNC connection (password is "secret")...')
         subprocess.run(["open", f"vnc://localhost:{desktop.vnc_port}"], check=True)
@@ -104,8 +122,6 @@ def run_agent_action(user_prompt, auto_mode=True):
         if auto_mode:
             status, data = desktop.action(input_text=formatted_prompt, ignore_safety_and_input=True)
         else:
-            # For simplicity, we’ll also do ignore_safety_and_input if you're not handling manual input
-            # If you truly need interactive prompts, see the original dinner_res_refactored approach
             status, data = desktop.action(input_text=formatted_prompt, ignore_safety_and_input=False)
 
         if status == AgentStatus.ERROR:
@@ -120,13 +136,13 @@ def run_agent_action(user_prompt, auto_mode=True):
     return logs
 
 ########################################
-# 4) FLASK ROUTES
+# 5) FLASK ROUTES
 ########################################
 @app.route("/api/start-container", methods=["POST"])
 def api_start_container():
     """
     POST /api/start-container
-    Simply ensures the container + noVNC is running.
+    Ensures the container + noVNC is running.
     """
     logs = start_container_if_needed()
     return jsonify({"logs": logs})
@@ -145,7 +161,7 @@ def api_run_agent():
     return jsonify({"logs": logs})
 
 ########################################
-# 5) MAIN ENTRY
+# 6) MAIN ENTRY
 ########################################
 if __name__ == "__main__":
     # Run Flask on port 5000 by default
