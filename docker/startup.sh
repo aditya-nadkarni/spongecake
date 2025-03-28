@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 
-# Start a virtual X server on display :99
-Xvfb :99 -screen 0 1280x720x24 &
+# 1) Clean up any stale X lock files and sockets.
+rm -f /tmp/.X*-lock
+rm -f /tmp/.X11-unix/X*
+
+# 2) Start a virtual X server on display :99 with extra flags (-ac, -nolisten tcp).
+Xvfb :99 -screen 0 1280x720x24 -ac -nolisten tcp &
 export DISPLAY=:99
 
-# Start Xfce4 session
+# Give Xvfb a moment to come up.
+sleep 2
+
+# 3) Start Xfce4 session
 startxfce4 &
 
 # Give Xfce a moment to start up
