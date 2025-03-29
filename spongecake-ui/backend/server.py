@@ -73,7 +73,7 @@ def start_container_if_needed(logs=None):
         return logs
 
     # 1) Start the Spongecake Desktop container
-    desktop = Desktop(name="dinner_reservation")
+    desktop = Desktop(name="computer_use_agent")
     container = desktop.start()
     logs.append(f"🍰 Container started: {container}")
 
@@ -110,11 +110,7 @@ def run_agent_action(user_prompt, auto_mode=False):
     logs.append("\n👾 Performing desktop action...")
 
     formatted_prompt = f"""
-    # AGENT GOAL #
     {user_prompt}
-
-    # STOPPING CONDITION # 
-    You are only done once you have booked the reservation.
     """
 
     # Run the agent in auto or interactive mode
