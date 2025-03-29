@@ -91,7 +91,7 @@ def start_container_if_needed(logs=None):
 ########################################
 # 4) HELPER: Run the agent action
 ########################################
-def run_agent_action(user_prompt, auto_mode=True):
+def run_agent_action(user_prompt, auto_mode=False):
     """
     Actually run the agent logic in the Spongecake Desktop.
     Returns a list of log messages.
@@ -154,10 +154,9 @@ def api_run_agent():
     JSON body: { "userPrompt": "...", "autoMode": true/false }
     """
     data = request.get_json()
-    user_prompt = data.get("userPrompt", "")
-    auto_mode = data.get("autoMode", True)
-
-    logs = run_agent_action(user_prompt, auto_mode)
+    messages = data.get("messages", "")
+    auto_mode = data.get("auto_mode", False)
+    logs = run_agent_action(messages, auto_mode)
     return jsonify({"logs": logs})
 
 ########################################
