@@ -1,11 +1,13 @@
 <div align="center">
-  <img 
-    src="./static/spongecake-light.png" 
-    alt="spongecake logo" 
-    width="700" 
-  >
+  <picture>
+    <source srcset="./static/spongecake-dark.png" media="(prefers-color-scheme: dark)">
+    <img 
+      src="./static/spongecake-light.png" 
+      alt="spongecake logo" 
+      width="700"
+    >
+  </picture>
 </div>
-
 
 <h1 align="center">Open source SDK to launch OpenAI computer use agents</h1>
 <div style="text-align: center;">
