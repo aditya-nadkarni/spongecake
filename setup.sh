@@ -167,6 +167,86 @@ python -m pip install --upgrade pip
 print_info "Installing dependencies: spongecake, dotenv, openai..."
 python -m pip install --upgrade spongecake dotenv openai
 
+# -----------------------------
+# 5. Check for existing .env file and ask about OpenAI API key setup if needed
+echo
+
+# Make sure examples directory exists
+mkdir -p examples
+
+# Check if .env file already exists and contains a valid OPENAI_API_KEY
+key_needs_setup=true
+
+if [ -f "examples/.env" ]; then
+    # Check if the file contains OPENAI_API_KEY= with something after it
+    if grep -q "OPENAI_API_KEY=\".*\"" "examples/.env" || grep -q "OPENAI_API_KEY=.*" "examples/.env"; then
+        print_info "Found existing .env file with OPENAI_API_KEY in examples directory."
+        key_needs_setup=false
+        key_was_set=true
+    else
+        print_info "Found existing .env file but no valid OPENAI_API_KEY entry."
+    fi
+else
+    print_info "No .env file found in examples directory."
+fi
+
+if [ "$key_needs_setup" = true ]; then
+    echo -e "${BLUE}${BOLD}Would you like to set up your OpenAI API key now? (y/n)${RESET}"
+    read -r setup_openai
+
+    if [[ "$setup_openai" =~ ^[Yy]$ ]]; then
+        echo -e "${BLUE}${BOLD}Please enter your OpenAI API key:${RESET}"
+        read -r openai_key
+        
+        # Check if .env file already exists
+        if [ -f "examples/.env" ]; then
+            # Remove any existing OPENAI_API_KEY line if present
+            if grep -q "OPENAI_API_KEY=" "examples/.env"; then
+                echo -e "${BLUE}${BOLD}Updating existing OPENAI_API_KEY in .env file...${RESET}"
+                # Create a temporary file without the OPENAI_API_KEY line
+                grep -v "OPENAI_API_KEY=" "examples/.env" > "examples/.env.tmp"
+                # Move the temporary file back to .env
+                mv "examples/.env.tmp" "examples/.env"
+            else
+                echo -e "${BLUE}${BOLD}Appending OPENAI_API_KEY to existing .env file...${RESET}"
+            fi
+            # Check if the file ends with a newline
+            if [ -s "examples/.env" ] && [ "$(tail -c 1 "examples/.env" | wc -l)" -eq 0 ]; then
+                # File doesn't end with newline, add the key with a leading newline
+                echo -e "\nOPENAI_API_KEY=\"$openai_key\"" >> examples/.env
+            else
+                # File already ends with newline, just append the key
+                echo "OPENAI_API_KEY=\"$openai_key\"" >> examples/.env
+            fi
+        else
+            # Create new .env file
+            echo -e "${BLUE}${BOLD}Creating new .env file in examples directory...${RESET}"
+            echo "OPENAI_API_KEY=\"$openai_key\"" > examples/.env
+        fi
+        print_success "OpenAI API key has been set up in examples/.env"
+        
+        # Set the key_was_set flag to true
+        key_was_set=true
+    else
+        print_info "You can set up your OpenAI API key later by creating an .env file in the examples directory with OPENAI_API_KEY=\"your-api-key\""
+    fi
+fi
+
+# Ask if user wants to run an example (only if key was set or already exists)
+if [ "${key_was_set:-false}" = true ]; then
+    echo
+    echo -e "${BLUE}${BOLD}Would you like to run an example now? (y/n)${RESET}"
+    read -r run_example
+    
+    if [[ "$run_example" =~ ^[Yy]$ ]]; then
+        print_info "Running example.py in the examples directory..."
+        # We're already in the activated venv, so just run the example
+        (cd examples && python3 example.py)
+    else
+        print_info "You can run the example later by activating the virtual environment and running 'python3 examples/example.py'"
+    fi
+fi
+
 echo
 echo -e "${GREEN}=============================================================${RESET}"
 echo -e "${GREEN}${BOLD}Setup complete!${RESET}"
