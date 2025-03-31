@@ -54,20 +54,7 @@
    - Installs dependencies and creates a Python virtual environment (venv) for you.
    - Prompts you if a dependency (like Docker) can’t be installed automatically.
    - If you install a dependency manually, re-run `./setup.sh` to continue.
-3. **Activate the new venv**:
-   ```bash
-   source venv/bin/activate  # On Windows, use venv\Scripts\activate
-   ```
-
-4. **Create a `.env` file** (in the `examples` folder) and update your OpenAI key:
-   ```bash
-   cd examples
-   cp .env.example .env
-   # Edit .env to add OPENAI_API_KEY
-   ```
-   Update `OPENAI_API_KEY` in the `.env` file to your OpenAI API key found in the [API platform](https://platform.openai.com/settings) (find API keys in the left nav bar)  
-
-5. **Run the example script**:
+3. **Run the example script**:
    ```bash
    python example.py
    ```
