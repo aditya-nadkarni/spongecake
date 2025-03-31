@@ -23,7 +23,7 @@ import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import React, { useState } from "react";
 
-export const Thread: FC<{ onSendMessage: (message: string) => void }> = ({ onSendMessage }) => {
+export const Thread: FC = () => {
   return (
     <ThreadPrimitive.Root
       className="bg-background box-border h-full flex flex-col overflow-hidden"
@@ -44,7 +44,7 @@ export const Thread: FC<{ onSendMessage: (message: string) => void }> = ({ onSen
         <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
           {/* Pass the callback to Composer */}
-          <Composer onSendMessage={onSendMessage} />
+          <Composer />
         </div>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
@@ -106,13 +106,11 @@ const ThreadWelcomeSuggestions: FC = () => {
   );
 };
 
-const Composer: FC<{ onSendMessage: (message: string) => void }> = ({ onSendMessage }) => {
+const Composer: FC = () => {
   const [inputText, setInputText] = useState("");
 
   const handleSubmit = () => {
-    console.log('hello world2')
     if (inputText.trim() === "") return;
-    onSendMessage(inputText);
     setInputText(""); // clear the input after sending
   };
 
