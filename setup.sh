@@ -195,7 +195,7 @@ if [ "$key_needs_setup" = true ]; then
     read -r setup_openai
 
     if [[ "$setup_openai" =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}${BOLD}Please enter your OpenAI API key:${RESET}"
+        echo -e "${BLUE}${BOLD}Please enter your OpenAI API key from https://platform.openai.com/settings:${RESET}"
         read -r openai_key
         
         # Check if .env file already exists
