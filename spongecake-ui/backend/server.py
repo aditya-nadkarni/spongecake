@@ -15,9 +15,6 @@ CORS(app)
 # We'll keep a global reference to the Desktop() object
 desktop = None
 
-########################################
-# 1) KILL ANY PROCESS LISTENING ON PORT
-########################################
 def kill_process_on_port(port):
     """
     A quick hacky way to free up 'port' on macOS/Linux by killing
@@ -31,9 +28,6 @@ def kill_process_on_port(port):
     except Exception as e:
         logging.warning(f"Failed to kill process on port {port}: {e}")
 
-########################################
-# 2) HELPER: Start noVNC
-########################################
 def start_novnc_server(
     novnc_path="/Users/terrell/Coding Projects/spongecake/spongecake-ui/noVNC-1.6.0",
     port="6080",
@@ -56,9 +50,6 @@ def start_novnc_server(
     logging.info(f"NoVNC process started on port {port} (PID={process.pid})")
     return process
 
-########################################
-# 3) HELPER: Start container if needed
-########################################
 def start_container_if_needed(logs=None):
     """
     Creates a Desktop() object if we don't already have one.
@@ -88,9 +79,6 @@ def start_container_if_needed(logs=None):
     logs.append(f"Started noVNC server on http://localhost:6080/vnc.html with vnc_port {desktop.vnc_port}")
     return logs
 
-########################################
-# 4) HELPER: Run the agent action
-########################################
 def run_agent_action(user_prompt, auto_mode=False):
     """
     Actually run the agent logic in the Spongecake Desktop.
@@ -133,9 +121,6 @@ def run_agent_action(user_prompt, auto_mode=False):
         "agent_response": agent_response
     }
 
-########################################
-# 5) FLASK ROUTES
-########################################
 @app.route("/api/start-container", methods=["POST"])
 def api_start_container():
     """
@@ -157,9 +142,6 @@ def api_run_agent():
     result = run_agent_action(messages, auto_mode)
     return jsonify(result)
 
-########################################
-# 6) MAIN ENTRY
-########################################
 if __name__ == "__main__":
     # Run Flask on port 5000 by default
     app.run(host="0.0.0.0", port=5000, debug=True)
