@@ -51,16 +51,10 @@
    chmod +x setup.sh  # May be required on Unix/macOS
    ./setup.sh
    ```
-   - Installs dependencies and creates a Python virtual environment (venv) for you.
-   - Prompts you if a dependency (like Docker) can’t be installed automatically.
-   - If you install a dependency manually, re-run `./setup.sh` to continue.
 3. **Run the example script**:
    ```bash
    python example.py
    ```
-   - This deploys a Docker container locally and uses the `.env` for your OpenAI credentials.
-   - If the default spongecake image isn’t present, Docker will pull it from Docker Hub.
-
    Feel free to edit `example.py` to try out your own commands.  
 > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
 ---
