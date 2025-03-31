@@ -37,47 +37,76 @@
 - **Controlling** that virtual desktop programmatically using an SDK (click, scroll, keyboard actions).
 - **Integrating** with OpenAI to drive an agent that can interact with a real Linux-based GUI.
 
----
+--- 
 
 ## Prerequisites
 
-You’ll need the following to get started (click to download):
-- [**Docker**](https://docs.docker.com/get-docker/)  
+### Option A: Automatic Setup
+
+1. **Clone this repository** (if you haven’t already):
+   ```bash
+   git clone https://github.com/aditya-nadkarni/spongecake.git
+   cd spongecake
+   ```
+2. **Run the setup script**:
+   ```bash
+   chmod +x setup.sh  # May be required on Unix/macOS
+   ./setup.sh
+   ```
+   - Installs dependencies and creates a Python virtual environment (venv) for you.
+   - Prompts you if a dependency (like Docker) can’t be installed automatically.
+   - If you install a dependency manually, re-run `./setup.sh` to continue.
+3. **Activate the new venv**:
+   ```bash
+   source venv/bin/activate  # On Windows, use venv\Scripts\activate
+   ```
+
+### Option B: Manual Setup
+
+If you prefer to set things up yourself or the setup script fails:
+
+- [**Docker**](https://docs.docker.com/get-docker/) (ensure it’s running)
+- [**Python 3.9+**](https://www.python.org/downloads/)
 - [**OpenAI API Key**](https://platform.openai.com/)
+  > **Note:** Make sure Docker Desktop is running on macOS/Windows.
+
+1. **Create and activate a Python venv**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # Windows: venv\Scripts\activate
+   ```
+2. **Install spongecake and required packages**:
+   ```bash
+   pip install --upgrade spongecake dotenv openai
+   ```
+3. **Ensure Docker is running** and you have your OpenAI API Key ready.
+
+---
 
 # Quick Start
 
-1. **Clone the repo** (if you haven’t already):
+1. **Verify prerequisites are met** (Docker installed and running, Python 3.9+, OpenAI API key).
+2. **Activate the Python venv** (either created by `setup.sh` or manually):
    ```bash
-   git clone https://github.com/aditya-nadkarni/spongecake.git
+   source venv/bin/activate
    ```
-2. **Set up a Python virtual environment and install the spongecake package**:
+3. **Create a `.env` file** (in the `examples` folder) and update your OpenAI key:
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows, use venv\Scripts\activate
-
-   python3 -m pip install --upgrade spongecake
-   python3 -m pip install --upgrade dotenv
-   python3 -m pip install --upgrade openai  
+   cd examples
+   cp .env.example .env
+   # Edit .env to add OPENAI_API_KEY
    ```
+   Update `OPENAI_API_KEY` in the `.env` file to your OpenAI API key found in the [API platform](https://platform.openai.com/settings) (find API keys in the left nav bar)  
 
-3. **Start docker, update your OpenAI keys, and run the example script**:  
-  Run docker desktop ([install here if needed](https://docs.docker.com/desktop/setup/install/mac-install/))
+4. **Run the example script**:
+   ```bash
+   python example.py
+   ```
+   - This deploys a Docker container locally and uses the `.env` for your OpenAI credentials.
+   - If the default spongecake image isn’t present, Docker will pull it from Docker Hub.
 
-    Update OpenAI key
-    ```bash
-    cd examples 
-    cp .env.example .env
-    ```
-    Then update OPENAI_API_KEY in the .env file to your OpenAI key in the API platform: https://platform.openai.com/settings (find API keys in the left nav bar)
-
-    Then run the example script: 
-    ```bash
-    python3 example.py
-    ```
-  Feel free to edit the `example.py` script to try out your own commands.  
-  <br>
-  > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
+   Feel free to edit `example.py` to try out your own commands.  
+> **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
 ---
 
 # Documentation
