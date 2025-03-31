@@ -39,9 +39,7 @@
 
 --- 
 
-## Prerequisites
-
-### Option A: Automatic Setup
+# Quick Start
 
 1. **Clone this repository** (if you haven’t already):
    ```bash
@@ -61,36 +59,7 @@
    source venv/bin/activate  # On Windows, use venv\Scripts\activate
    ```
 
-### Option B: Manual Setup
-
-If you prefer to set things up yourself or the setup script fails:
-
-- [**Docker**](https://docs.docker.com/get-docker/) (ensure it’s running)
-- [**Python 3.9+**](https://www.python.org/downloads/)
-- [**OpenAI API Key**](https://platform.openai.com/)
-  > **Note:** Make sure Docker Desktop is running on macOS/Windows.
-
-1. **Create and activate a Python venv**:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
-   ```
-2. **Install spongecake and required packages**:
-   ```bash
-   pip install --upgrade spongecake dotenv openai
-   ```
-3. **Ensure Docker is running** and you have your OpenAI API Key ready.
-
----
-
-# Quick Start
-
-1. **Verify prerequisites are met** (Docker installed and running, Python 3.9+, OpenAI API key).
-2. **Activate the Python venv** (either created by `setup.sh` or manually):
-   ```bash
-   source venv/bin/activate
-   ```
-3. **Create a `.env` file** (in the `examples` folder) and update your OpenAI key:
+4. **Create a `.env` file** (in the `examples` folder) and update your OpenAI key:
    ```bash
    cd examples
    cp .env.example .env
@@ -98,7 +67,7 @@ If you prefer to set things up yourself or the setup script fails:
    ```
    Update `OPENAI_API_KEY` in the `.env` file to your OpenAI API key found in the [API platform](https://platform.openai.com/settings) (find API keys in the left nav bar)  
 
-4. **Run the example script**:
+5. **Run the example script**:
    ```bash
    python example.py
    ```

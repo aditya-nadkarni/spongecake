@@ -115,7 +115,7 @@ Then re-run this script after installation."
 elif [[ "$OS_TYPE" == "windows" ]]; then
     print_warning "Windows environment detected.
 Please ensure Docker Desktop is installed and running before proceeding.
-Download link: https://www.docker.com/products/docker-desktop
+Download link: https://www.docker.com/products/docker-desktop/#:~:text=Download%20Docker%20Desktop
 Then re-run this script from a suitable shell (Git Bash, etc.)"
     exit 1
 else
@@ -174,4 +174,6 @@ echo -e "${GREEN}=============================================================${
 echo
 echo -e "To use your new virtual environment, run:"
 echo -e "  ${CYAN}${BOLD}source venv/bin/activate${RESET}"
+echo
+echo -e "Please ensure ${CYAN}${BOLD}Docker Desktop${RESET} is running."
 echo
