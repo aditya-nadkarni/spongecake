@@ -2,16 +2,20 @@ This is the [assistant-ui](https://github.com/Yonom/assistant-ui) starter projec
 
 ## Getting Started
 
-First, add your OpenAI API key to `.env.local` file:
-
-```
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-Then, run the development server:
+Then, run the backend server:
 
 ```bash
+cd backend
+python server.py
+```
+
+Then, in a different terminal, run the frontend server:
+
+```bash
+cd frontend
+npm install
 npm run dev
+
 # or
 yarn dev
 # or

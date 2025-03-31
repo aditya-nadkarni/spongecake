@@ -22,16 +22,12 @@ const MyModelAdapter: ChatModelAdapter = {
       }
       const data = await result.json();
       
-      // Use the logs property from the data
-      if (!data.logs || !Array.isArray(data.logs)) {
-        throw new Error("Expected data.logs to be an array");
+      if (!data.agent_response) {
+        throw new Error("Expected agent_response to be provided");
       }
 
       return {
-        content: data.logs.map((message: any) => ({
-          type: "text",
-          text: message?.content[0]?.text,
-        })),
+        content: [{ type: "text", text: data.agent_response || "" }],
       };
     } catch (error) {
       console.error("Error in run:", error);

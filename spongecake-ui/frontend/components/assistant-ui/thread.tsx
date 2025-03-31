@@ -43,7 +43,6 @@ export const Thread: FC = () => {
         </ThreadPrimitive.If>
         <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
-          {/* Pass the callback to Composer */}
           <Composer />
         </div>
       </ThreadPrimitive.Viewport>

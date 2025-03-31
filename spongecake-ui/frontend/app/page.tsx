@@ -22,12 +22,13 @@ export default function Home() {
       });
       const data = await resp.json();
       console.log("Container logs:", data.logs);
+
+      // Wait for 2 seconds before showing the VNC viewer
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setLogs(data.logs || []);
       setContainerStarted(true);
-      setDesktopLoading(false);
-
-      // Open VNC viewer
       setVncShown(true);
+      setDesktopLoading(false);
 
     } catch (error) {
       console.error("Error starting container:", error);

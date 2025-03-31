@@ -100,18 +100,14 @@ def run_agent_action(user_prompt, auto_mode=False):
     # Ensure container is running
     logs = start_container_if_needed(logs)
 
-    # Attempt to open macOS VNC
-    # try:
-    #     logs.append('Attempting to open VNC connection (password is "secret")...')
-    #     subprocess.run(["open", f"vnc://localhost:{desktop.vnc_port}"], check=True)
-    # except Exception as e:
-    #     logs.append(f"❌ Failed to open VNC connection: {e}")
-
     logs.append("\n👾 Performing desktop action...")
 
     formatted_prompt = f"""
-    {user_prompt}
+    {user_prompt} 
+    If a user mentioned going to a website, always start by trying to go directly to the URL instead of going to Google first
     """
+
+    agent_response = None
 
     # Run the agent in auto or interactive mode
     try:
@@ -122,14 +118,20 @@ def run_agent_action(user_prompt, auto_mode=False):
 
         if status == AgentStatus.ERROR:
             logs.append(f"❌ Error in agent action: {data}")
+            agent_response = None
         else:
             logs.append(f"✅ Agent status: {status}")
-            logs.append(f"Agent data: {data}")
+            agent_response = str(data[0].content[0].text)
     except Exception as exc:
-        logs.append(f"❌ Exception while running action: {exc}")
+        error_msg = f"❌ Exception while running action: {exc}"
+        logs.append(error_msg)
+        logging.error(error_msg, exc_info=True)  # <-- This logs full traceback
 
     logs.append("Done.\n")
-    return logs
+    return {
+        "logs": logs,
+        "agent_response": agent_response
+    }
 
 ########################################
 # 5) FLASK ROUTES
@@ -152,8 +154,8 @@ def api_run_agent():
     data = request.get_json()
     messages = data.get("messages", "")
     auto_mode = data.get("auto_mode", False)
-    logs = run_agent_action(messages, auto_mode)
-    return jsonify({"logs": logs})
+    result = run_agent_action(messages, auto_mode)
+    return jsonify(result)
 
 ########################################
 # 6) MAIN ENTRY
