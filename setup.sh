@@ -105,7 +105,7 @@ if [[ "$OS_TYPE" == "linux" ]]; then
 elif [[ "$OS_TYPE" == "mac" ]]; then
     if ! command -v docker &> /dev/null; then
         print_warning "Docker not found. Please install Docker Desktop for macOS from:
-  https://www.docker.com/products/docker-desktop
+  https://www.docker.com/products/docker-desktop/#:~:text=Download%20Docker%20Desktop
 Then re-run this script after installation."
         exit 1
     else
