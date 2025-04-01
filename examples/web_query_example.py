@@ -126,7 +126,7 @@ def main():
         question = "When was GPT-4.5 released?"
         print(f"\n --> 🙋‍♀️ Question: {question}")
         status, data = desktop.action(
-            input_text=f"Go to the Wikipedia page for OpenAI, and answer the question: {question}.\nOnce you are on the Wikipedia page, DO NOT scroll on the Wikipedia page.", # We'll explicitly instruc the agent not to scroll. Although this is for the purposes of this example, the agent is generally pretty bad at scrolling..
+            input_text=f"Go directly to the Wikipedia page for OpenAI (do not use Google), and answer the question: {question}.\nOnce you are on the OpenAI Wikipedia page, DO NOT scroll on the Wikipedia page.", # We'll explicitly instruc the agent not to scroll. Although this is for the purposes of this example, the agent is generally pretty bad at scrolling..
             complete_handler=complete_handler,
             needs_input_handler=needs_input_handler,
             needs_safety_check_handler=needs_safety_check_handler,
