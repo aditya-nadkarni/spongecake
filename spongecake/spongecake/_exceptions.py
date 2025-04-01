@@ -1,2 +1,0 @@
-class SpongecakeException(Exception):
-    pass
