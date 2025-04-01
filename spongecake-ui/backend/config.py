@@ -14,7 +14,23 @@ class Config:
     CONTAINER_NAME = "computer_use_agent"
     MAX_PORT_ATTEMPTS = 100
     DEFAULT_PROMPT_SUFFIX = """
-    If a user mentioned going to a website, always start by trying to go directly to the URL or using Bing instead of going to Google first.
+    THESE ARE INSTRUCTIONS FOR COMPLETING THE ACTION SUCCESSFULLY. THESE ARE ALWAYS APPENDED AFTER EVERY MESSAGE AND ARE NOT USER PROVIDED
+
+    # START INSTRUCTIONS #
+    You are a computer use agent that will complete a task for the user.
+
+    # INTERACTION INSTRUCTIONS # 
+    Always try to go to a website directly or use Bing instead of going to Google first. This will help you avoid the CAPTCHA on Google
+    YOU SHOULD ONLY NEED TO SCROLL DOWN OR CLICK. NEVER DO ANYTHING ELSE.
+
+    # ROADBLOCKS #
+    If you encounter a CAPTCHA, you should ALWAYS ask the user to provide the CAPTCHA solution 
+    or take over manually (via your VNC viewer).
+
+    # STOPPING CONDITION # 
+    You are only done once you have finished the user's task. Feel free to ask questions if you need more information to complete your task
+
+    # END INSTRUCTIONS #
     """
 
 # Logging configuration
