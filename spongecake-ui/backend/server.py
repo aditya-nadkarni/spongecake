@@ -92,7 +92,7 @@ def run_agent_action(user_prompt, auto_mode=False):
 
     formatted_prompt = f"""
     {user_prompt} 
-    If a user mentioned going to a website, always start by trying to go directly to the URL instead of going to Google first
+    If a user mentioned going to a website, always start by trying to go directly to the URL or using Bing instead of going to Google first.
     """
 
     agent_response = None
