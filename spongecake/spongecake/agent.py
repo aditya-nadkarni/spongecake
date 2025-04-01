@@ -248,7 +248,6 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             
             for tool_call in function_calls:
                 name = tool_call.name
-                logger.info(f"* Function call: {name}")
                 args = json.loads(tool_call.arguments) if hasattr(tool_call, 'arguments') and tool_call.arguments else {}
                 
                 # Dispatch to the appropriate function
@@ -256,9 +255,10 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                     result = self.get_page_html(**args)
                 elif function_map and name in function_map:
                     # Use the provided function map for custom functions
-                    logger.info(f"--> Calling function: {name}, with arguments: {args}")
+                    logger.info(f"[TOOL CALL] Calling function: {name}, with arguments: {args}")
                     result = function_map[name](**args)
                 else:
+                    logger.info(f"[TOOL CALL] Function: {name} not found in function map. Unable to call.")
                     result = f"Function {name} not implemented"
                     
                 # Add the result to input messages
@@ -662,7 +662,6 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         Returns:
             str: The HTML content of the current page, or an error message if retrieval fails.
         """
-        logger.info("** get_page_html() CALLED!")
         if self.desktop is None:
             return "Error: No desktop has been set for this agent."
             
@@ -678,16 +677,16 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             host = "localhost"
             port = self.desktop.marionette_port  # Use the marionette_port directly
             
-            logger.info(f"Connecting to Marionette server at {host}:{port}...")
+            # logger.info(f"Connecting to Marionette server at {host}:{port}...")
             try:
                 client = Marionette(host, port=port)
-                logger.info("Successfully connected to Marionette server.")
+                # logger.info("Successfully connected to Marionette server.")
 
                 client.start_session()
                 # Execute JavaScript to get the full DOM HTML
                 html = client.execute_script(query)
                 
-                logger.info("Successfully retrieved page HTML")
+                # logger.info("Successfully retrieved page HTML")
                 return html
             except ConnectionRefusedError:
                 return f"Error: Could not connect to Marionette server at {host}:{port}. Make sure Firefox is running with marionette enabled."
