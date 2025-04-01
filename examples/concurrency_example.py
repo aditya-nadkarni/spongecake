@@ -43,7 +43,16 @@ def get_nth_weekend_dates(year, month, n):
 def check_flight_price(month, origin, destination, weekend_number):
     # Use local Docker container
     desktop_name = f"spongecake_weekend_flight_{weekend_number}"
-    desktop = Desktop(name=desktop_name)
+    ## Best practice: When running desktops concurrently, its generally better to manage which ports each desktop will run on
+    #   This avoids port conflicts. Spongecake will automatically handle port conflicts if needed, but this could lead to issues.
+    # Set all ports based on weekend number (default port + weekend_number - 1)
+    desktop = Desktop(
+        name=desktop_name,
+        vnc_port=5900 + weekend_number - 1,
+        api_port=8000 + weekend_number - 1,
+        marionette_port=3838 + weekend_number - 1,
+        socat_port=2828 + weekend_number - 1
+    )
     container = desktop.start()
     logging.info(f"🍰 Local Spongecake container started for weekend {weekend_number}: {container}")
 

@@ -186,7 +186,7 @@ class Desktop:
 
         # 3) Attempt to create the container. We'll do a few retries for rare collisions.
         #    Because we hold a lock to choose ports, collisions should be unlikely.
-        max_retries = 5
+        max_retries = 10
         container = None
         for attempt in range(max_retries):
             try:
