@@ -166,8 +166,8 @@ class Desktop:
         # Hardcoded container ports (inside the container).
         CONTAINER_VNC_PORT = 5900
         CONTAINER_API_PORT = 8000
-        CONTAINER_MARIONETTE_PORT = 2828
-        CONTAINER_SOCAT_PORT = 3838
+        CONTAINER_MARIONETTE_PORT = 3838
+        CONTAINER_SOCAT_PORT = 2828
 
         # 1) Allocate all required ports in a single pass while holding a global lock.
         self._allocate_all_ports_threadsafe()
