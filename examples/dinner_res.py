@@ -4,6 +4,7 @@ from time import sleep
 from dotenv import load_dotenv
 from spongecake import Desktop, AgentStatus
 import subprocess
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -96,7 +97,7 @@ def run_agent_action(user_prompt, auto_mode=True, input_callback=None):
         except Exception as e:
             log.append(f"❌ Failed to open VNC connection: {e}")
         
-        novnc_process = start_novnc_server(novnc_path="/Users/terrell/Coding Projects/spongecake/spongecake-ui/noVNC-1.6.0", port="6080", vnc_host="localhost", vnc_port=str(desktop.vnc_port))
+        novnc_process = start_novnc_server(novnc_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "spongecake-ui", "noVNC-1.6.0"), port="6080", vnc_host="localhost", vnc_port=str(desktop.vnc_port))
         log.append("Started noVNC server on http://localhost:6080/vnc.html")
 
         log.append("\n👾 Performing desktop action...")

@@ -177,17 +177,17 @@ mkdir -p examples
 # Check if .env file already exists and contains a valid OPENAI_API_KEY
 key_needs_setup=true
 
-if [ -f "examples/.env" ]; then
+if [ -f ".env" ]; then
     # Check if the file contains OPENAI_API_KEY= with something after it
-    if grep -q "OPENAI_API_KEY=\".*\"" "examples/.env" || grep -q "OPENAI_API_KEY=.*" "examples/.env"; then
-        print_info "Found existing .env file with OPENAI_API_KEY in examples directory."
+    if grep -q "OPENAI_API_KEY=\".*\"" ".env" || grep -q "OPENAI_API_KEY=.*" ".env"; then
+        print_info "Found existing .env file with OPENAI_API_KEY in root directory."
         key_needs_setup=false
         key_was_set=true
     else
         print_info "Found existing .env file but no valid OPENAI_API_KEY entry."
     fi
 else
-    print_info "No .env file found in examples directory."
+    print_info "No .env file found in root directory."
 fi
 
 if [ "$key_needs_setup" = true ]; then
@@ -199,36 +199,36 @@ if [ "$key_needs_setup" = true ]; then
         read -r openai_key
         
         # Check if .env file already exists
-        if [ -f "examples/.env" ]; then
+        if [ -f ".env" ]; then
             # Remove any existing OPENAI_API_KEY line if present
-            if grep -q "OPENAI_API_KEY=" "examples/.env"; then
+            if grep -q "OPENAI_API_KEY=" ".env"; then
                 echo -e "${BLUE}${BOLD}Updating existing OPENAI_API_KEY in .env file...${RESET}"
                 # Create a temporary file without the OPENAI_API_KEY line
-                grep -v "OPENAI_API_KEY=" "examples/.env" > "examples/.env.tmp"
+                grep -v "OPENAI_API_KEY=" ".env" > ".env.tmp"
                 # Move the temporary file back to .env
-                mv "examples/.env.tmp" "examples/.env"
+                mv ".env.tmp" ".env"
             else
                 echo -e "${BLUE}${BOLD}Appending OPENAI_API_KEY to existing .env file...${RESET}"
             fi
             # Check if the file ends with a newline
-            if [ -s "examples/.env" ] && [ "$(tail -c 1 "examples/.env" | wc -l)" -eq 0 ]; then
+            if [ -s ".env" ] && [ "$(tail -c 1 ".env" | wc -l)" -eq 0 ]; then
                 # File doesn't end with newline, add the key with a leading newline
-                echo -e "\nOPENAI_API_KEY=\"$openai_key\"" >> examples/.env
+                echo -e "\nOPENAI_API_KEY=\"$openai_key\"" >> ".env"
             else
                 # File already ends with newline, just append the key
-                echo "OPENAI_API_KEY=\"$openai_key\"" >> examples/.env
+                echo "OPENAI_API_KEY=\"$openai_key\"" >> ".env"
             fi
         else
             # Create new .env file
-            echo -e "${BLUE}${BOLD}Creating new .env file in examples directory...${RESET}"
-            echo "OPENAI_API_KEY=\"$openai_key\"" > examples/.env
+            echo -e "${BLUE}${BOLD}Creating new .env file in root directory...${RESET}"
+            echo "OPENAI_API_KEY=\"$openai_key\"" > ".env"
         fi
-        print_success "OpenAI API key has been set up in examples/.env"
+        print_success "OpenAI API key has been set up in .env"
         
         # Set the key_was_set flag to true
         key_was_set=true
     else
-        print_info "You can set up your OpenAI API key later by creating an .env file in the examples directory with OPENAI_API_KEY=\"your-api-key\""
+        print_info "You can set up your OpenAI API key later by creating an .env file in the root directory with OPENAI_API_KEY=\"your-api-key\""
     fi
 fi
 
@@ -256,8 +256,9 @@ echo -e "${GREEN}=============================================================${
 echo -e "${GREEN}${BOLD}Setup complete!${RESET}"
 echo -e "${GREEN}=============================================================${RESET}"
 echo
-echo -e "To start the app, ensure ${CYAN}${BOLD}Docker Desktop${RESET} is running, and run:"
-echo -e "- ${CYAN}${BOLD}source venv/bin/activate${RESET}"
+echo -e "To start the app, ensure ${CYAN}${BOLD}Docker Desktop${RESET} is running, open two terminals, and run:"
+echo -e "- Terminal 1: In ${CYAN}${BOLD}cd/spongecake${RESET}, run ${CYAN}${BOLD}source venv/bin/activate${RESET}"
 echo -e "- Terminal 1: ${CYAN}cd spongecake-ui/frontend && npm run dev${RESET}"
+echo -e "- Terminal 2: In ${CYAN}${BOLD}cd/spongecake${RESET}, run ${CYAN}${BOLD}source venv/bin/activate${RESET}"
 echo -e "- Terminal 2: ${CYAN}cd spongecake-ui/backend && python server.py${RESET}"
 echo

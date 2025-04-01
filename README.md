@@ -52,6 +52,7 @@
    ./setup.sh
    ```
 3. **Run the backend and frontend**:
+
     In the spongecake directory, run:
     ```bash
     cd spongecake-ui

@@ -29,7 +29,7 @@ def kill_process_on_port(port):
         logging.warning(f"Failed to kill process on port {port}: {e}")
 
 def start_novnc_server(
-    novnc_path="/Users/terrell/Coding Projects/spongecake/spongecake-ui/noVNC-1.6.0",
+    novnc_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "noVNC-1.6.0"),
     port="6080",
     vnc_host="localhost",
     vnc_port="5900"
@@ -70,7 +70,7 @@ def start_container_if_needed(logs=None):
 
     # 2) Start noVNC
     novnc_process = start_novnc_server(
-        novnc_path="/Users/terrell/Coding Projects/spongecake/spongecake-ui/noVNC-1.6.0",
+        novnc_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "noVNC-1.6.0"),
         port="6080",
         vnc_host="localhost",
         vnc_port=str(desktop.vnc_port)
