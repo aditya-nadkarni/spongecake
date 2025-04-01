@@ -6,12 +6,13 @@ import {
   useLocalRuntime,
   type ChatModelAdapter,
 } from "@assistant-ui/react";
+import { API_BASE_URL } from "@/config";
  
 const MyModelAdapter: ChatModelAdapter = {
   async run({ messages, abortSignal }) {
     try {
       const lastMessage = (messages[messages.length - 1]?.content[0] as { text?: string })?.text;
-      const result = await fetch("http://localhost:5000/api/run-agent", {
+      const result = await fetch(`${API_BASE_URL}/api/run-agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: lastMessage }),

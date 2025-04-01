@@ -7,21 +7,29 @@ import { Play, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MyRuntimeProvider } from "@/components/assistant-ui/MyRuntimeProvider";
 import Logo from "@/components/images/spongecake-logo-light.png";
+import { API_BASE_URL, getVncUrl } from "@/config";
 
 export default function Home() {
   const [containerStarted, setContainerStarted] = useState(false);
   const [vncShown, setVncShown] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [desktopLoading, setDesktopLoading] = useState(false);
+  const [novncPort, setNovncPort] = useState<number>(6080); // Default port, will be updated
 
   const handleStartContainer = async () => {
     try {
       setDesktopLoading(true);
-      const resp = await fetch("http://localhost:5000/api/start-container", {
+      const resp = await fetch(`${API_BASE_URL}/api/start-container`, {
         method: "POST",
       });
       const data = await resp.json();
       console.log("Container logs:", data.logs);
+      console.log("NoVNC port:", data.novncPort);
+      
+      // Update the noVNC port from the server response
+      if (data.novncPort) {
+        setNovncPort(data.novncPort);
+      }
 
       // Wait for 2 seconds before showing the VNC viewer
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -73,11 +81,11 @@ export default function Home() {
                 <iframe
                   id="vncFrame"
                   title="vncFrame"
-                  src="http://localhost:6080/vnc.html?host=localhost&port=5900&password=secret&autoconnect=true"
+                  src={getVncUrl(novncPort)}
                   width="100%"
-                    height="720"
-                    frameBorder="0"
-                  />
+                  height="720"
+                  frameBorder="0"
+                />
                 </div>
             </div>
           </div>
