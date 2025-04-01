@@ -1,4 +1,3 @@
-# example.py
 import logging
 import concurrent.futures
 from datetime import date, timedelta
@@ -97,13 +96,9 @@ def check_flight_price(month, origin, destination, weekend_number):
 def main():
     # Prompt user for emails
     print('\n -> This is a flight price checker to find the cheapest set of flights for a weekend trip to a given destination. Provide the starting location, destination, and the month you want to travel to find the best weekend to fly')
-    # origin = input("\n>Starting location (Origin): ").strip()
-    # destination = input("\n>Destination: ").strip()
-    # month = input("\n>Month Number (e.g. 1 - January, 2 - February, etc.): ").strip()
-
-    origin = "San Francisco"
-    destination = "Los Angeles"
-    month = "5"
+    origin = input("\n>Starting location (Origin): ").strip()
+    destination = input("\n>Destination: ").strip()
+    month = input("\n>Month Number (e.g. 1 - January, 2 - February, ... 10 - October, etc.): ").strip()
     
     print(f"\nChecking best weekend to fly in {month_map[month]}...\n")
 

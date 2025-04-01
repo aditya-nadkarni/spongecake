@@ -1,4 +1,3 @@
-# example.py
 import logging
 from time import sleep
 from dotenv import load_dotenv
@@ -77,7 +76,7 @@ def main():
     except Exception as e:
         print(f"❌ Failed to open VNC connection: {e}")
 
-    # Tool Calls
+    # Function definition
     def get_wikipedia_elements(searchText):
         '''Grabs the entire text content of a Wikipedia page - omits any section headers'''
         logging.info("    [TOOL CALL]: Grabbing relevant context from page...")
@@ -86,18 +85,10 @@ def main():
             if (!container) {{
                 return null;
             }}
-
-            // Select all <p>, <section>, and <h1>-<h6> tags within #bodyContent
             let elements = container.querySelectorAll('p, section, h1, h2, h3, h4, h5, h6');
-
-            // Filter by whether the element's text contains the search string
             let matchingElements = Array.from(elements).filter((el) => {{
-                // You can adjust includes() to be case-insensitive if needed
-                // by converting both to a single case
                 return el.textContent.includes("{searchText}");
             }});
-
-            // Return the combined outerHTML of the matching elements
             return matchingElements.map((el) => el.outerHTML).join('\\n');
         """)
         return content
@@ -150,8 +141,8 @@ def main():
         print("Done.\n")
 
     # Clean up the container. Optionally, leave the container running and connect to it again when needed. 
-    # print("Stopping and removing container...")
-    # desktop.stop()
+    print("Stopping and removing container...")
+    desktop.stop()
     print("🍰")
 
 
