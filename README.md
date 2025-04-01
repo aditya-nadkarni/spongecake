@@ -12,10 +12,10 @@
 <h1 align="center">Open Source Operator for Computer Use</h1>
 <div style="text-align: center;">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-example.gif" />
+    <source media="(prefers-color-scheme: dark)" srcset="./static/spongecake-demo.gif" />
     <img 
       alt="[coming soon] Shows a demo of spongecake in action" 
-      src="./static/linkedin-example.gif" 
+      src="./static/spongecake-demo.gif" 
       style="width: 100%; max-width: 700px;"
     />
   </picture>

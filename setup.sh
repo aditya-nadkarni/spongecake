@@ -259,5 +259,5 @@ echo
 echo -e "To start the app, ensure ${CYAN}${BOLD}Docker Desktop${RESET} is running, and run:"
 echo -e "- ${CYAN}${BOLD}source venv/bin/activate${RESET}"
 echo -e "- Terminal 1: ${CYAN}cd spongecake-ui/frontend && npm run dev${RESET}"
-echo -e "- Terminal 2: ${CYAN}cd spongecake-ui/backend && venv/bin/python server.py${RESET}"
+echo -e "- Terminal 2: ${CYAN}cd spongecake-ui/backend && python server.py${RESET}"
 echo
