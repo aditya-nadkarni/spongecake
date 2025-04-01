@@ -9,7 +9,7 @@
   </picture>
 </div>
 
-<h1 align="center">Open source SDK to launch OpenAI computer use agents</h1>
+<h1 align="center">Open Source Operator for Computer Use</h1>
 <div style="text-align: center;">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./static/linkedin-example.gif" />
@@ -32,7 +32,7 @@
 
 ## What is spongecake?
 
-🍰 **spongecake** is the easiest way to launch OpenAI-powered “computer use” agents that scrape, fill out forms, and interact with websites or local apps. It simplifies:
+🍰 **spongecake** is the easiest way to create your own OpenAI Operator that can use computers. These agents can scrape, fill out forms, and interact with websites or local apps. It simplifies:
 - **Spinning up** a Docker container with a virtual desktop (including Xfce, VNC, etc.).
 - **Controlling** that virtual desktop programmatically using an SDK (click, scroll, keyboard actions).
 - **Integrating** with OpenAI to drive an agent that can interact with a real Linux-based GUI.
