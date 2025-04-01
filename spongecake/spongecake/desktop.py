@@ -42,8 +42,8 @@ port_allocation_lock = threading.Lock()
 GLOBAL_PORT_COUNTER = {
     "vnc": 5901,        # Next candidate if 5900 is busy
     "api": 8001,        # Next candidate if 8000 is busy
-    "marionette": 2829, # Next candidate if 2828 is busy
-    "socat": 3839       # Next candidate if 3838 is busy
+    "marionette": 3839, # Next candidate if 2828 is busy
+    "socat": 2829       # Next candidate if 3838 is busy
 }
 
 ################################
@@ -206,10 +206,15 @@ class Desktop:
                 err_str = str(e)
                 # If there's a port conflict at Docker level, we attempt to pick new ports and retry.
                 if "port is already allocated" in err_str or "driver failed programming external connectivity" in err_str:
-                    logger.warning(
-                        f"Port conflict detected while creating container (attempt {attempt+1}). "
-                        "Incrementing ports and retrying..."
-                    )
+                    logger.warning("Detected port conflict. Removing partial container and retrying with new ports.")
+
+                    # Remove the partially created container
+                    # A catch-all in case Docker assigned the name but didn't start
+                    try:
+                        partial_container = self.docker_client.containers.get(self.container_name)
+                        partial_container.remove(force=True)
+                    except NotFound:
+                        pass
                     self._allocate_all_ports_threadsafe()
                 else:
                     # Some other error, re-raise.
