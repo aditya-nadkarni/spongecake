@@ -51,11 +51,19 @@
    chmod +x setup.sh  # May be required on Unix/macOS
    ./setup.sh
    ```
-3. **Run the example script**:
-   ```bash
-   python example.py
-   ```
-   Feel free to edit `example.py` to try out your own commands.  
+3. **Run the backend and frontend**:
+    In the spongecake directory, run:
+    ```bash
+    cd spongecake-ui
+    cd frontend
+    npm run dev
+    ```
+    In a new terminal, run:
+    ```bash
+    cd spongecake-ui
+    cd backend
+    python server.py
+    ```
 > **Note:** This deploys a Docker container in your local Docker environment. If the spongecake default image isn't available, it will pull the image from Docker Hub.
 ---
 

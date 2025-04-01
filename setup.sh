@@ -165,7 +165,7 @@ python -m pip install --upgrade pip
 
 # Install required packages
 print_info "Installing dependencies: spongecake, dotenv, openai..."
-python -m pip install --upgrade spongecake dotenv openai
+python -m pip install --upgrade spongecake flask flask_cors dotenv openai websockify
 
 # -----------------------------
 # 5. Check for existing .env file and ask about OpenAI API key setup if needed
@@ -232,28 +232,32 @@ if [ "$key_needs_setup" = true ]; then
     fi
 fi
 
-# Ask if user wants to run an example (only if key was set or already exists)
-if [ "${key_was_set:-false}" = true ]; then
-    echo
-    echo -e "${BLUE}${BOLD}Would you like to run an example now? (y/n)${RESET}"
-    read -r run_example
-    
-    if [[ "$run_example" =~ ^[Yy]$ ]]; then
-        print_info "Running example.py in the examples directory..."
-        # We're already in the activated venv, so just run the example
-        (cd examples && python3 example.py)
-    else
-        print_info "You can run the example later by activating the virtual environment and running 'python3 examples/example.py'"
-    fi
+# -----------------------------
+# 6. Setup and start the frontend and backend
+
+# Install frontend dependencies
+print_info "Installing frontend dependencies..."
+
+if ! command -v node &> /dev/null; then
+  print_error "Node.js is not installed. Please install Node.js from https://nodejs.org/en/ and then re-run this script."
+  exit 1
 fi
+
+if ! command -v npm &> /dev/null; then
+  print_error "npm is not installed. Please install npm along with Node.js from https://nodejs.org/en/ and then re-run this script."
+  exit 1
+fi
+
+(cd spongecake-ui/frontend && npm install)
+
 
 echo
 echo -e "${GREEN}=============================================================${RESET}"
 echo -e "${GREEN}${BOLD}Setup complete!${RESET}"
 echo -e "${GREEN}=============================================================${RESET}"
 echo
-echo -e "To use your new virtual environment, run:"
-echo -e "  ${CYAN}${BOLD}source venv/bin/activate${RESET}"
-echo
-echo -e "Please ensure ${CYAN}${BOLD}Docker Desktop${RESET} is running."
+echo -e "To start the app, ensure ${CYAN}${BOLD}Docker Desktop${RESET} is running, and run:"
+echo -e "- ${CYAN}${BOLD}source venv/bin/activate${RESET}"
+echo -e "- Terminal 1: ${CYAN}cd spongecake-ui/frontend && npm run dev${RESET}"
+echo -e "- Terminal 2: ${CYAN}cd spongecake-ui/backend && venv/bin/python server.py${RESET}"
 echo
