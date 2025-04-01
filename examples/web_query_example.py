@@ -80,6 +80,9 @@ def main():
     def get_wikipedia_elements(searchText):
         '''Grabs the entire text content of a Wikipedia page - omits any section headers'''
         logging.info("    [TOOL CALL]: Grabbing relevant context from page...")
+
+        # Use the built-in get_page_html function to grab the elements we want to return to the agent
+        # Note: Its entirely possible to provide the full page as context, but the agent often gets lost in the mix - The more specific the query the better
         content = desktop.get_page_html(query=f"""
             let container = document.querySelector('#bodyContent');
             if (!container) {{
@@ -98,6 +101,7 @@ def main():
         {
             "type": "function",
             "name": "get_wikipedia_elements",
+            # For the purposes of this example, we will instruct the agent to always use this function
             "description": "ALWAYS use this function to grab elements of a wikipedia page that contain a certain search term to answer questions, allowing you to extract relevant information WITHOUT scrolling.\n **IMPORTANT**: ONLY use this function when you are on a Wikipedia page",
             "parameters": {
                 "type": "object",
@@ -117,28 +121,32 @@ def main():
         "get_wikipedia_elements": get_wikipedia_elements
     }
 
-    # Call the desktop agent
-    question = "When was GPT-4.5 released?"
-    print(f"\n --> 🙋‍♀️ Question: {question}")
-    status, data = desktop.action(
-        input_text=f"Go to the Wikipedia page for OpenAI, and answer the question: {question}.\nOnce you are on the Wikipedia page, DO NOT scroll on the Wikipedia page or use Ctrl+F to search.",
-        complete_handler=complete_handler,
-        needs_input_handler=needs_input_handler,
-        needs_safety_check_handler=needs_safety_check_handler,
-        error_handler=error_handler,
-        # Add tools
-        tools=custom_tools,
+    try:
+        # Call the desktop agent
+        question = "When was GPT-4.5 released?"
+        print(f"\n --> 🙋‍♀️ Question: {question}")
+        status, data = desktop.action(
+            input_text=f"Go to the Wikipedia page for OpenAI, and answer the question: {question}.\nOnce you are on the Wikipedia page, DO NOT scroll on the Wikipedia page.", # We'll explicitly instruc the agent not to scroll. Although this is for the purposes of this example, the agent is generally pretty bad at scrolling..
+            complete_handler=complete_handler,
+            needs_input_handler=needs_input_handler,
+            needs_safety_check_handler=needs_safety_check_handler,
+            error_handler=error_handler,
+            # Add tools and function map
+            tools=custom_tools,
         function_map=function_map,
-    )
+        )
     
-    # Show final results
-    final_result = result[0]
-    if final_result is None:
-        print("\n⛔️ Task was interrupted or encountered an error\n")
-    elif hasattr(final_result, "output_text"):
-        print(f"📩 Answer: {final_result.output_text}\n")
-    else:
-        print("Done.\n")
+        # Show final results
+        final_result = result[0]
+        if final_result is None:
+            print("\n⛔️ Task was interrupted or encountered an error\n")
+        elif hasattr(final_result, "output_text"):
+            print(f"📩 Answer: {final_result.output_text}\n")
+        else:
+            print("Done.\n")
+    except Exception as e:
+        print(f"❌ An error occurred: {e}")
+        print("\nExiting gracefully...")
 
     # Clean up the container. Optionally, leave the container running and connect to it again when needed. 
     print("Stopping and removing container...")
