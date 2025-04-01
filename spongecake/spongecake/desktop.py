@@ -203,9 +203,10 @@ class Desktop:
                 )
                 break
             except APIError as e:
-                err_str = str(e)
+                err_str = str(e).lower()
+                logger.error(f"Docker API Error: {err_str}")
                 # If there's a port conflict at Docker level, we attempt to pick new ports and retry.
-                if "port is already allocated" in err_str or "driver failed programming external connectivity" in err_str:
+                if "port is already allocated" in err_str or "driver failed programming external connectivity" in err_str or "ports are not available" in err_str or "address already in use" in err_str or "port" in err_str:
                     logger.warning("Detected port conflict. Removing partial container and retrying with new ports.")
 
                     # Remove the partially created container
