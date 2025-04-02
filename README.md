@@ -29,6 +29,7 @@
 [![Documentation](https://img.shields.io/badge/documentation-link-brightgreen?style=flat)](https://docs.spongecake.ai/quickstart)
 ![GitHub repo size](https://img.shields.io/github/repo-size/aditya-nadkarni/spongecake)
 [![GitHub stars](https://img.shields.io/github/stars/aditya-nadkarni/spongecake)](https://img.shields.io/github/stars/aditya-nadkarni/spongecake)
+[![Discord](https://img.shields.io/discord/1357076134365233166?color=7289DA&label=Discord/Support&logo=discord&logoColor=white)](https://discord.gg/3KDmjAd98w)
 
 ## What is spongecake?
 
