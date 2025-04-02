@@ -66,7 +66,6 @@ class Desktop:
     """
 
     def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True):
-        self.instance_id = str(uuid.uuid4())
         """
         Initialize a new Desktop instance.
         
