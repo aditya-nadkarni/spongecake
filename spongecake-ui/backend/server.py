@@ -100,15 +100,12 @@ class SpongecakeServer:
         if logs is None:
             logs = []
         
-        if self.desktop is not None:
-            logs.append("Container already started.")
-            return logs, self.novnc_port
-        
         try:
             # 1) Start the Spongecake Desktop container
             self.desktop = Desktop(name=Config.CONTAINER_NAME)
             container = self.desktop.start()
             logs.append(f"🍰 Container started: {container}")
+            logger.info(f"🍰 Container started: {container}")
             
             # 2) Start noVNC with dynamic port allocation
             self.novnc_process, self.novnc_port = self.start_novnc_server(
@@ -119,12 +116,16 @@ class SpongecakeServer:
                 f"Started noVNC server on http://localhost:{self.novnc_port}/vnc.html "
                 f"with vnc_port {self.desktop.vnc_port}"
             )
+            logger.info(
+                f"Started noVNC server on http://localhost:{self.novnc_port}/vnc.html "
+                f"with vnc_port {self.desktop.vnc_port}"
+            )
             
             return logs, self.novnc_port
             
         except Exception as e:
             error_msg = f"Failed to start container: {e}"
-            logger.error(error_msg, exc_info=True)
+            logger.error(f"❌ {error_msg}", exc_info=True)
             logs.append(f"❌ {error_msg}")
             return logs, None
 
