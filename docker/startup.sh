@@ -18,11 +18,10 @@ startxfce4 &
 sleep 2
 
 # Re-apply the wallpaper in case it didn't stick during build
-xfconf-query \
-  -c xfce4-desktop \
+xfconf-query -c xfce4-desktop \
   -p /backdrop/screen0/monitorscreen/workspace0/last-image \
   -s /usr/share/backgrounds/spongecake-background.png \
-|| true
+  --create -t string || true
 
 # Start x11vnc server (password-protected)
 x11vnc -display :99 -N -forever -shared -rfbauth /home/myuser/.vncpass -rfbport 5900 &
