@@ -28,13 +28,13 @@ jobs:
 
       - name: Build the package
         run: |
-          cd spongecake
+          cd spongecake-sdk
           python -m build
 
       - name: Publish to PyPI
         run: |
           python -m twine upload dist/*
-        working-directory: spongecake
+        working-directory: spongecake-sdk
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
