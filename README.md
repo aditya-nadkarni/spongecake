@@ -33,10 +33,10 @@
 
 ## What is spongecake?
 
-🍰 **spongecake** is the easiest way to create your own OpenAI Operator that can use computers. These agents can scrape, fill out forms, and interact with websites or local apps. It simplifies:
-- **Spinning up** a Docker container with a virtual desktop (including Xfce, VNC, etc.).
-- **Controlling** that virtual desktop programmatically using an SDK (click, scroll, keyboard actions).
-- **Integrating** with OpenAI to drive an agent that can interact with a real Linux-based GUI.
+🍰 **spongecake** is the easiest way to create your own OpenAI Operator that can use computers. These agents can scrape, fill out forms, and interact with websites or local apps. It helps:
+- Developers who want to build their own computer use / operator experience
+- Developers who want to automate workflows in desktop applications with poor / no APIs (super common in industries like supply chain and healthcare)
+- Developers who want to automate workflows for enterprises with on-prem environments with constraints like VPNs, firewalls, etc (common in healthcare, finance)
 
 --- 
 
