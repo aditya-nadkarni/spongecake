@@ -165,7 +165,7 @@ python -m pip install --upgrade pip
 
 # Install required packages
 print_info "Installing dependencies: spongecake, flask, marshmallow, dotenv, openai..."
-python -m pip install --upgrade spongecake flask flask_cors python-dotenv openai websockify marshmallow
+python -m pip install --upgrade spongecake flask flask_cors python-dotenv openai websockify marshmallow pyautogui
 
 # -----------------------------
 # 5. Check for existing .env file and ask about OpenAI API key setup if needed

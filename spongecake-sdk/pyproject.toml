@@ -19,6 +19,7 @@ dependencies = [
   "openai>=1.66.3",
   "python-dotenv>=0.17.1",
   "marionette-driver>=3.0.0",
+  "pyautogui>=0.9.54",
 ]
 
 # Optional: Additional project metadata

@@ -16,6 +16,7 @@ setup(
         "python-dotenv",  # If you're using dotenv, for example
         "requests",
         "marionette-driver>=3.0.0",  # For Firefox browser automation
+        "pyautogui",  # For automating actions locally on MacOS
         # etc.
     ],
     classifiers=[
