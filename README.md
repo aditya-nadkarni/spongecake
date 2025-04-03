@@ -1,3 +1,43 @@
+Notes from looking into Windows set-up 
+- Use UTM (https://www.utm.app/) to run virtual machines. 
+- Download official windows iso from site
+- Can use temporarily without product key but recommend purchasing if looking for long-term usage
+- Will need to figure out how to install UTM via startup script (example here)
+```bash
+# Install Homebrew if not already installed (optional)
+if ! command -v brew &> /dev/null; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+# Install UTM
+brew install --cask utm
+```
+- Apparently will need to create a UTM template. This should be created by creating a VM in UTM and then saving it as a template.
+- Will need to point to a URL to download the ISO (example below - need to figure out how to handle long running process here, and communicating to the user)
+```bash
+# Define the download URL and destination path
+ISO_URL="https://cdimage.ubuntu.com/releases/22.04/release/ubuntu-22.04.4-live-server-arm64.iso"
+ISO_PATH="$HOME/Downloads/ubuntu-arm64.iso"
+
+# Download the ISO if it doesn't exist
+if [ ! -f "$ISO_PATH" ]; then
+  echo "Downloading Ubuntu ISO..."
+  curl -L "$ISO_URL" -o "$ISO_PATH"
+fi
+```
+
+Then need to configure ISO path in UTM set-up
+```bash
+# Path to your UTM template (modify this as needed)
+TEMPLATE_PATH="$HOME/Documents/UTM VMs/MyUbuntu.utm/Info.plist"
+
+# Update the ISO path in the UTM configuration
+/usr/libexec/PlistBuddy -c "Set :System:BootImage:Path $ISO_PATH" "$TEMPLATE_PATH"
+```
+
+Then the VM should be able to programatically start with (utmctl start "MyUbuntu"). You can also pass commands to it using SSH - but we need to look into that 
+
+
 <div align="center">
   <picture>
     <source srcset="./static/spongecake-dark.png" media="(prefers-color-scheme: dark)">
