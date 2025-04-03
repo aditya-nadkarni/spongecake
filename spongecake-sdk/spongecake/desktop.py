@@ -14,6 +14,8 @@ import logging
 import threading
 from openai import OpenAI
 from .constants import AgentStatus
+from .trace import Tracer, TraceConfig
+from typing import Optional
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ class Desktop:
       unavailable between the initial check and the actual container startup
     """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True):
+    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True, trace_config: Optional[TraceConfig] = None):
         """
         Initialize a new Desktop instance.
         
@@ -92,6 +94,7 @@ class Desktop:
         self.socat_port = socat_port
         self.host = host
         self.container_started = False
+        self.tracer = Tracer(trace_config)
         
         # Display a warning if host is specified but api_port is using the default value
         if self.host is not None and self.api_port is None:
@@ -387,6 +390,7 @@ class Desktop:
         click_type can be 'left', 'middle', or 'right'.
         """
         logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
+        self.tracer.add_entry("click", x=x, y=y, button=click_type)
         
         # Prepare API request data
         json_data = {"type": "click", "x": x, "y": y, "button": click_type}
@@ -414,6 +418,7 @@ class Desktop:
         Negative scroll_x -> scroll left, positive -> scroll right (button 6 or 7).
         """
         logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
+        self.tracer.add_entry("scroll", x=x, y=y, scroll_x=scroll_x, scroll_y=scroll_y)
         
         # Prepare API request data
         json_data = {"type": "scroll", "x": x, "y": y, "scroll_x": scroll_x, "scroll_y": scroll_y}
@@ -454,6 +459,7 @@ class Desktop:
         Example: keys=["CTRL","F"] -> Ctrl+F
         """
         logger.info(f"Action: keypress with keys: {keys}")
+        self.tracer.add_entry("keypress", keys=keys)
         
         # Prepare API request data
         json_data = {"type": "keypress", "keys": keys}
@@ -512,6 +518,7 @@ class Desktop:
         Type a string of text (like using a keyboard) at the current cursor location.
         """
         logger.info(f"Action: type text: {text}")
+        self.tracer.add_entry("type", text=text)
         
         # Prepare API request data
         json_data = {"type": "type", "text": text}
@@ -552,13 +559,14 @@ class Desktop:
         )
         
         # Extract screenshot data from response
+        screenshot_bytes = None
         if isinstance(response, dict) and "screenshot" in response:
-            return response["screenshot"]
+            screenshot_bytes = response["screenshot"]
         elif isinstance(response, dict) and "result" in response:
             # If the response comes from the fallback command
-            return response["result"]
-        else:
-            return None
+            screenshot_bytes = response["result"]
+        self.tracer.add_entry("screenshot", screeshot=screenshot_bytes)
+        return screenshot_bytes
     
     # ----------------------------------------------------------------
     # GOTO URL
@@ -571,6 +579,7 @@ class Desktop:
             url: The URL to navigate to (e.g., "https://example.com")
         """
         logger.info(f"Action: goto URL: {url}")
+        self.tracer.add_entry("goto", url=url)
         
         # Prepare API request data
         json_data = {"type": "goto", "url": url}
@@ -594,6 +603,7 @@ class Desktop:
         Wait for the specified number of seconds.
         """
         logger.info(f"Action: wait for {seconds} seconds")
+        self.tracer.add_entry("wait", seconds=seconds)
         
         # Prepare API request data
         json_data = {"type": "wait", "seconds": seconds}
@@ -714,7 +724,7 @@ class Desktop:
         return self.get_agent().get_page_html(query)
             
     def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
-              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, **kwargs):
+              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, trace_id: Optional[str] = None, **kwargs):
         """
         New and improved action command: Execute an action in the desktop environment. This method delegates to the agent's action method.
         
@@ -745,42 +755,52 @@ class Desktop:
             - status is an AgentStatus enum value indicating the result
             - data contains relevant information based on the status
         """
-        # Look for old-style keys in **kwargs:
-        old_input = kwargs.get("input")
-        user_input = kwargs.get("user_input")
-        safety_checks = kwargs.get("safety_checks")
-        pending_call = kwargs.get("pending_call")
-        if type(acknowledged_safety_checks) == str:
-            # using positional arguments in old style
-            old_input = input_text
-            user_input = acknowledged_safety_checks
-            safety_checks = ignore_safety_and_input
-            pending_call = complete_handler
-        if any([old_input, user_input, safety_checks, pending_call]) or type(acknowledged_safety_checks) == str:
-            warnings.warn(
-                "Looks like you're using the old action() command - switch to action_legacy() if you need to maintain your current code, or switch to the new action method",
-                DeprecationWarning, 
-                stacklevel=2
-            )
-            return self.action_legacy(
-                input=old_input,
-                user_input=user_input,
-                safety_checks=safety_checks,
-                pending_call=pending_call
+        if trace_id:
+            self.tracer.start(trace_id)
+        try:
+            # Look for old-style keys in **kwargs:
+            old_input = kwargs.get("input")
+            user_input = kwargs.get("user_input")
+            safety_checks = kwargs.get("safety_checks")
+            pending_call = kwargs.get("pending_call")
+            if type(acknowledged_safety_checks) == str:
+                # using positional arguments in old style
+                old_input = input_text
+                user_input = acknowledged_safety_checks
+                safety_checks = ignore_safety_and_input
+                pending_call = complete_handler
+            if any([old_input, user_input, safety_checks, pending_call]) or type(acknowledged_safety_checks) == str:
+                warnings.warn(
+                    "Looks like you're using the old action() command - switch to action_legacy() if you need to maintain your current code, or switch to the new action method",
+                    DeprecationWarning, 
+                    stacklevel=2
+                )
+                return self.action_legacy(
+                    input=old_input,
+                    user_input=user_input,
+                    safety_checks=safety_checks,
+                    pending_call=pending_call
+                )
+            agent = self.get_agent()
+            return agent.action(
+                input_text=input_text, 
+                acknowledged_safety_checks=acknowledged_safety_checks, 
+                ignore_safety_and_input=ignore_safety_and_input,
+                complete_handler=complete_handler,
+                needs_input_handler=needs_input_handler,
+                needs_safety_check_handler=needs_safety_check_handler,
+                error_handler=error_handler,
+                tools=tools,
+                function_map=function_map
             )
 
-        agent = self.get_agent()
-        return agent.action(
-            input_text=input_text, 
-            acknowledged_safety_checks=acknowledged_safety_checks, 
-            ignore_safety_and_input=ignore_safety_and_input,
-            complete_handler=complete_handler,
-            needs_input_handler=needs_input_handler,
-            needs_safety_check_handler=needs_safety_check_handler,
-            error_handler=error_handler,
-            tools=tools,
-            function_map=function_map
-        )
+        finally:
+            if trace_id:
+                self.tracer.stop()
+    
+    # exposes context manager for a given trace 
+    def trace(self, trace_id: str):
+        return self.tracer.trace(trace_id)
 
     def extract_and_print_safety_checks(self, result):
         checks = result.get("safety_checks") or []

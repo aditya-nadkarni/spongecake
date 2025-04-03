@@ -842,6 +842,9 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         if previous_response_id:
             params["previous_response_id"] = previous_response_id
             
+        if self.desktop.tracer.config.trace_api_calls:
+            self.desktop.tracer.add_entry("api_call", endpoint="openai/responses", params=params)
+
         try:
             return self.openai_client.responses.create(**params)
         except Exception as e:
