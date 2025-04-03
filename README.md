@@ -139,7 +139,7 @@ Feel free to open issues for any feature requests or if you encounter any bugs! 
 ## Roadmap
 
 - Support for other computer-use agents
-- Support for browser-only envrionments
+- Support for browser-only environments
 - Integrating human-in-the-loop
 - (and much more...)
 
