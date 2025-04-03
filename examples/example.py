@@ -68,7 +68,7 @@ def error_handler(error_message):
 
 def main():
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed. Set host='local' to not spin up a container and run the agent on your own machine (MacOS only)
-    desktop = Desktop(name="newdesktop", host="local")
+    desktop = Desktop(name="newdesktop")
     container = desktop.start()
 
     # Prompt user for action
