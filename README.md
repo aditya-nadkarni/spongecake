@@ -143,8 +143,8 @@ Feel free to open issues for any feature requests or if you encounter any bugs! 
 - Integrating human-in-the-loop
 - (and much more...)
 
-## Benchmarks 
-[coming soon - will compare against Operator, WebVoyager etc]
+## Appreciation
+- Shout out to [assistant-ui](https://github.com/assistant-ui/assistant-ui) for making such an easy to use chat component 
 
 ## Team
 
