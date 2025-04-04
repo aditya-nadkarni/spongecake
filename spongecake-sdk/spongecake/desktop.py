@@ -95,6 +95,19 @@ class Desktop:
         self.socat_port = socat_port
         self.host = host
         self.container_started = False
+
+        # Initialize environment
+        if self.host == 'local':
+            if platform.system() == "Darwin":
+                self.environment = "mac"
+                self.screen_width, self.screen_height = pyautogui.size()
+            else: 
+                self.environment = "linux"
+                self.screen_width, self.screen_height = 1024, 768
+        else: 
+            # Docker container defaults
+            self.environment = "linux"
+            self.screen_width, self.screen_height = 1024, 768
         
         # Display a warning if host is specified but api_port is using the default value
         if self.host is not None and self.api_port is None:
@@ -392,7 +405,7 @@ class Desktop:
         logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
 
         # If running locally on MacOS
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # macOS: Use PyAutoGUI to move the mouse and click.
             pyautogui.moveTo(x, y)
             pyautogui.click(x, y, button=click_type.lower())
@@ -428,7 +441,7 @@ class Desktop:
         logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
 
         # If running locally on MacOS
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # Use PyAutoGUI for macOS
             pyautogui.moveTo(x, y)
             # Note: In pyautogui, a positive value scrolls up; since our convention is inverted,
@@ -482,7 +495,7 @@ class Desktop:
         logger.info(f"Action: keypress with keys: {keys}")
 
         # Check if running on macOS
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # Special handling for macOS using pyautogui.hotkey
             modifiers = []
             regular_keys = []
@@ -566,7 +579,7 @@ class Desktop:
         logger.info(f"Action: type text: {text}")
 
         # Check if running on macOS
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # On macOS, use PyAutoGUI to type the text directly.
             pyautogui.write(text)
             return  # End execution for macOS.
@@ -598,7 +611,7 @@ class Desktop:
         logger.info("Action: take screenshot")
         
         # If running locally on MacOS
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # Use PyAutoGUI to capture the screenshot on macOS
             screenshot = pyautogui.screenshot()
             # Save screenshot to a bytes buffer in PNG format
@@ -647,7 +660,7 @@ class Desktop:
         logger.info(f"Action: goto URL: {url}")
 
         # If running on macOS (note: we need something specifically for Windows since we're using subprocess)
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # On macOS, open the URL using the default browser (or specify Firefox if needed)
             subprocess.run(["open", url])
             return
@@ -678,7 +691,7 @@ class Desktop:
         logger.info(f"Action: wait for {seconds} seconds")
 
         # Check if running on macOS
-        if platform.system() == "Darwin":
+        if self.environment == "mac":
             # On macOS, just sleep using Python's time.sleep.
             time.sleep(seconds)
             return

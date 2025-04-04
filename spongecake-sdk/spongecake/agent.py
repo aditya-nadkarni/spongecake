@@ -803,9 +803,9 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
         default_tools = [
             {
                 "type": "computer_use_preview",
-                "display_width": 1024,
-                "display_height": 768,
-                "environment": "linux"
+                "display_width": self.desktop.screen_width,
+                "display_height": self.desktop.screen_height,
+                "environment": self.desktop.environment
             },
             # {
             #     "type": "function",
