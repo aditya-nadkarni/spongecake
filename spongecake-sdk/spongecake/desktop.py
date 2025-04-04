@@ -566,7 +566,7 @@ class Desktop:
             # If the response comes from the fallback command
             screenshot_bytes = response["result"]
         if self.tracer.config.trace_screenshots:
-            self.tracer.add_entry("screenshot", screeshot=screenshot_bytes)
+            self.tracer.add_entry("screenshot", screeshot=f"data:image/png;base64,{screenshot_bytes}")
         return screenshot_bytes
     
     # ----------------------------------------------------------------
