@@ -2,8 +2,9 @@
 import logging
 from time import sleep
 from dotenv import load_dotenv
-from spongecake import Desktop, AgentStatus
+from spongecake import Desktop, AgentStatus, TraceConfig
 import subprocess
+import json
 
 # Configure logging - most logs in the SDK are INFO level logs
 logging.basicConfig(
@@ -61,6 +62,9 @@ def error_handler(error_message):
     print(f"😱 ERROR: {error_message}")
     result[0] = None  # Just return None on error
 
+def log_trace(trace_data):
+    print(f"Trace {trace_data['trace_id']} completed:")
+    print(json.dumps(trace_data, indent=2))
 
 # -------------------------
 # Main
@@ -68,7 +72,8 @@ def error_handler(error_message):
 
 def main():
     # Start up an isolated desktop. Edit desktop name, and docker_image if needed
-    desktop = Desktop(name="newdesktop")
+    trace_config = TraceConfig(callback=log_trace)
+    desktop = Desktop(name="newdesktop", trace_config=trace_config)
     container = desktop.start()
     desktop.goto("https://www.amazon.com")
     print("🍰 spongecake container started:", container)
@@ -127,7 +132,8 @@ def main():
                 complete_handler=complete_handler,
                 needs_input_handler=needs_input_handler,
                 needs_safety_check_handler=needs_safety_check_handler,
-                error_handler=error_handler
+                error_handler=error_handler,
+                trace_id="some_id"
             )
 
         # Show final results

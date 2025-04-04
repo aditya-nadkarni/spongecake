@@ -565,7 +565,8 @@ class Desktop:
         elif isinstance(response, dict) and "result" in response:
             # If the response comes from the fallback command
             screenshot_bytes = response["result"]
-        self.tracer.add_entry("screenshot", screeshot=screenshot_bytes)
+        if self.tracer.config.trace_screenshots:
+            self.tracer.add_entry("screenshot", screeshot=screenshot_bytes)
         return screenshot_bytes
     
     # ----------------------------------------------------------------

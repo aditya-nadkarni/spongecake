@@ -21,10 +21,12 @@ class TraceConfig:
         self,
         enabled: bool = True,
         trace_api_calls: bool = False,
+        trace_screenshots: bool=False,
         callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ):
         self.enabled = enabled
         self.trace_api_calls = trace_api_calls
+        self.trace_screenshots = trace_screenshots
         self.callback = callback
 
 class Tracer:
