@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 import os
 import requests
-import subprocess  # Import subprocess module
-
+import csv  
+import uuid
 from . import _exceptions
 from .agent import Agent
 
@@ -65,7 +65,7 @@ class Desktop:
       unavailable between the initial check and the actual container startup
     """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True):
+    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True, logging_enabled: bool = False):
         """
         Initialize a new Desktop instance.
         
@@ -84,6 +84,7 @@ class Desktop:
         self.container_name = name  # Set container name for use in methods
         self.docker_image = docker_image # Set image name to start container
         self.display = ":99"
+        self.logging_enabled = logging_enabled
 
         # Set up access ports
         self.vnc_port = vnc_port
@@ -132,6 +133,63 @@ class Desktop:
         else:
             # local containers are on localhost
             self.api_base_url = f"http://localhost:{self.api_port}"
+
+    # -------------------------
+    # Event Logger - Logs desktop events and screenshots
+    # -------------------------
+    def log_event(self, action: str, args: str = None, screenshot_data: str = None, csv_file: str = "logs/desktop_events_log.csv"):
+        """
+        Append an event entry to a CSV log.
+        
+        If the action is "screenshot" and screenshot_data is provided, this function:
+        - Ensures the logs directory exists.
+        - Creates a unique screenshot file in that directory.
+        - Logs the screenshot filename along with a unique action_id, container_id, action, args, and timestamp.
+        
+        Args:
+            action: The action name (e.g., "screenshot").
+            args: Any additional arguments or details as a string.
+            screenshot_data: Base64 encoded screenshot data if applicable.
+            csv_file: Path to the CSV log file.
+        """
+        if not self.logging_enabled:
+            return
+
+        # Ensure the logs directory exists (based on the csv_file path)
+        logs_dir = os.path.dirname(csv_file)
+        if logs_dir:
+            os.makedirs(logs_dir, exist_ok=True)
+
+        screenshot_filename = ""
+        if action == "screenshot" and screenshot_data:
+            # Create a unique filename: <container_name>-<timestamp>.png inside the logs directory
+            timestamp_str = time.strftime("%Y%m%dT%H%M%S")
+            screenshot_filename = os.path.join(logs_dir, f"{self.container_name}-{timestamp_str}.png")
+            with open(screenshot_filename, "wb") as f:
+                f.write(base64.b64decode(screenshot_data))
+            logger.info(f"Screenshot saved as {screenshot_filename}")
+
+        # Retrieve the container's unique ID
+        container = self.docker_client.containers.get(self.container_name)
+        container_id = container.id
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        file_exists = os.path.exists(csv_file)
+        
+        # Append the event to the CSV log file
+        with open(csv_file, "a", newline="") as csvfile:
+            fieldnames = ["action_id", "container_id", "action", "args", "timestamp", "screenshot_filename"]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()
+            row = {
+                "action_id": str(uuid.uuid4()),
+                "container_id": container_id,
+                "action": action,
+                "args": args,
+                "timestamp": timestamp,
+                "screenshot_filename": screenshot_filename
+            }
+            writer.writerow(row)
 
     def start(self):
         """
@@ -387,6 +445,7 @@ class Desktop:
         click_type can be 'left', 'middle', or 'right'.
         """
         logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
+        self.log_event("click", args=f"({x}, {y}) with button '{click_type}'")
         
         # Prepare API request data
         json_data = {"type": "click", "x": x, "y": y, "button": click_type}
@@ -414,6 +473,7 @@ class Desktop:
         Negative scroll_x -> scroll left, positive -> scroll right (button 6 or 7).
         """
         logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
+        self.log_event("scroll", args=f"({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
         
         # Prepare API request data
         json_data = {"type": "scroll", "x": x, "y": y, "scroll_x": scroll_x, "scroll_y": scroll_y}
@@ -457,6 +517,7 @@ class Desktop:
         
         # Prepare API request data
         json_data = {"type": "keypress", "keys": keys}
+        self.log_event("keypress", args=", ".join(keys))
         
         # Prepare fallback command
         fallback_cmds = []
@@ -512,6 +573,7 @@ class Desktop:
         Type a string of text (like using a keyboard) at the current cursor location.
         """
         logger.info(f"Action: type text: {text}")
+        self.log_event("type", args=text)
         
         # Prepare API request data
         json_data = {"type": "type", "text": text}
@@ -550,15 +612,22 @@ class Desktop:
             json_data=json_data,
             fallback_cmd=fallback_cmd
         )
+
+        screenshot_data = None
         
         # Extract screenshot data from response
         if isinstance(response, dict) and "screenshot" in response:
-            return response["screenshot"]
+            screenshot_data = response["screenshot"]
         elif isinstance(response, dict) and "result" in response:
             # If the response comes from the fallback command
-            return response["result"]
+            screenshot_data = response["result"]
         else:
-            return None
+            screenshot_data = None
+        
+        if screenshot_data and self.logging_enabled:
+            self.log_event(action="screenshot", screenshot_data=screenshot_data)
+            
+        return screenshot_data
     
     # ----------------------------------------------------------------
     # GOTO URL
