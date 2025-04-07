@@ -88,7 +88,7 @@ class SpongecakeServer:
             logger.error(f"Failed to start noVNC server: {e}")
             raise
     
-    def start_container_if_needed(self, logs: Optional[List[str]] = None) -> Tuple[List[str], int]:
+    def start_container_if_needed(self, host="", logs: Optional[List[str]] = None) -> Tuple[List[str], int]:
         """Creates a Desktop() object if we don't already have one and starts the container + noVNC server.
         
         Args:
@@ -102,7 +102,7 @@ class SpongecakeServer:
         
         try:
             # 1) Start the Spongecake Desktop container
-            self.desktop = Desktop(name=Config.CONTAINER_NAME)
+            self.desktop = Desktop(name=Config.CONTAINER_NAME, host=host if host != '' else None)
             container = self.desktop.start()
             logs.append(f"🍰 Container started: {container}")
             logger.info(f"🍰 Container started: {container}")
@@ -185,7 +185,9 @@ class SpongecakeServer:
         Returns:
             JSON response with logs and noVNC port
         """
-        logs, port = self.start_container_if_needed()
+        data = request.get_json()
+        host = data.get("host", "")
+        logs, port = self.start_container_if_needed(host)
         return jsonify({
             "logs": logs,
             "novncPort": port

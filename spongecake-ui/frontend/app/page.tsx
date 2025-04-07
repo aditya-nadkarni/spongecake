@@ -13,14 +13,21 @@ export default function Home() {
   const [containerStarted, setContainerStarted] = useState(false);
   const [vncShown, setVncShown] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  const [desktopLoading, setDesktopLoading] = useState(false);
+  const [containerLoading, setContainerLoading] = useState(false);
   const [novncPort, setNovncPort] = useState<number>(6080); // Default port, will be updated
+  const [host, setHost] = useState("");
 
-  const handleStartContainer = async () => {
+  const handleStartContainer = async (host: string = "") => {
     try {
-      setDesktopLoading(true);
+      if(host != 'local') {
+        setContainerLoading(true);
+      }
       const resp = await fetch(`${API_BASE_URL}/api/start-container`, {
         method: "POST",
+        body: JSON.stringify({ host }),
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
       const data = await resp.json();
       console.log("Container logs:", data.logs);
@@ -31,12 +38,16 @@ export default function Home() {
         setNovncPort(data.novncPort);
       }
 
+      if(host != 'local') {
+        await new Promise(resolve => setTimeout(resolve, 3500));
+        setContainerStarted(true);
+        setVncShown(true);
+      } 
       // Wait for 2 seconds before showing the VNC viewer
-      await new Promise(resolve => setTimeout(resolve, 2000));
       setLogs(data.logs || []);
-      setContainerStarted(true);
-      setVncShown(true);
-      setDesktopLoading(false);
+
+      setHost(host);
+      setContainerLoading(false);
     } catch (error) {
       console.error("Error starting container:", error);
     }
@@ -47,13 +58,23 @@ export default function Home() {
       <main className="px-4 py-4 flex-col gap-3 flex items-center">
         <img src={Logo.src} alt="Spongecake Logo" width={300} />
         {!containerStarted && (
+          <div className="flex flex-row gap-2">
           <Button
-            disabled={desktopLoading}
+            disabled={containerLoading}
             className="w-fit font-bold"
-            onClick={handleStartContainer}
+            onClick={() => handleStartContainer('')}
           >
-            {desktopLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Desktop
+            {containerLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Desktop
           </Button>
+          <Button
+            // disabled={desktopLoading}
+            className="w-fit font-bold"
+            variant={'outline'}
+            onClick={() => handleStartContainer('local')}
+          >
+            Start Local
+          </Button>
+          </div>
         )}
         {/* View Logs */}
         {/* {logs.length > 0 && (
@@ -65,7 +86,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            )} */}
+            )}  */}
         {containerStarted && vncShown && (
 
           <div className="grid grid-cols-3 gap-4 border w-full rounded p-2">
@@ -90,6 +111,22 @@ export default function Home() {
             </div>
           </div>
         )}
+        {/* Local mode - this will just show a chat window which will execute agent on local machine with no container */}
+        {host === 'local' && (
+                    // <div className="grid grid-cols-3 gap-4 border w-full rounded p-2">
+                    // <div className="col-span-1 space-y-4 overflow-auto">
+                    //   {/* LEFT COLUMN: Chat Interface */}
+                      <div 
+                      style={{ height: "calc(100vh - 200px)" }} // subtract 100px or whatever value
+                      className=" flex flex-col border items-center mt-0 w-dvh rounded p-2">
+                        Make this window half the size of your screen
+                        <Thread />
+                      </div>
+                  //   </div>
+                  // </div>
+          )}
+
+
       </main>
     </MyRuntimeProvider>
   );
