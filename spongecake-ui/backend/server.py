@@ -162,7 +162,10 @@ class SpongecakeServer:
                 agent_response = None
             else:
                 logs.append(f"✅ Agent status: {status}")
-                agent_response = str(data[0].content[0].text)
+                if (status == AgentStatus.COMPLETE):
+                    agent_response = data.output[1].content[0].text
+                else:
+                    agent_response = str(data[0].content[0].text)
                 
         except Exception as exc:
             error_msg = f"❌ Exception while running action: {exc}"
