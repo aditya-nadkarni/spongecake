@@ -46,7 +46,8 @@ GLOBAL_PORT_COUNTER = {
     "vnc": 5901,        # Next candidate if 5900 is busy
     "api": 8001,        # Next candidate if 8000 is busy
     "marionette": 3839, # Next candidate if 2828 is busy
-    "socat": 2829       # Next candidate if 3838 is busy
+    "socat": 2829,      # Next candidate if 3838 is busy
+    "websocket": 6081   # Next candidate if 6080 is busy
 }
 
 ################################
@@ -68,7 +69,7 @@ class Desktop:
       unavailable between the initial check and the actual container startup
     """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True):
+    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, websocket_port: int = 6080, host: str = None, openai_api_key: str = None, create_agent: bool = True):
         """
         Initialize a new Desktop instance.
         
@@ -93,6 +94,7 @@ class Desktop:
         self.api_port = api_port
         self.marionette_port = marionette_port
         self.socat_port = socat_port
+        self.websocket_port = websocket_port
         self.host = host
         self.container_started = False
 
@@ -184,6 +186,7 @@ class Desktop:
         CONTAINER_API_PORT = 8000
         CONTAINER_MARIONETTE_PORT = 3838
         CONTAINER_SOCAT_PORT = 2828
+        CONTAINER_WEBSOCKET_PORT = 6080
 
         # 1) Allocate all required ports in a single pass while holding a global lock.
         self._allocate_all_ports_threadsafe()
@@ -215,6 +218,7 @@ class Desktop:
                         f"{CONTAINER_API_PORT}/tcp": self.api_port,
                         f"{CONTAINER_MARIONETTE_PORT}/tcp": self.marionette_port,
                         f"{CONTAINER_SOCAT_PORT}/tcp": self.socat_port,
+                        f"{CONTAINER_WEBSOCKET_PORT}/tcp": self.websocket_port,
                     },
                 )
                 break
@@ -263,6 +267,7 @@ class Desktop:
             self.api_port = self._get_free_port("api", self.api_port)
             self.marionette_port = self._get_free_port("marionette", self.marionette_port)
             self.socat_port = self._get_free_port("socat", self.socat_port)
+            self.websocket_port = self._get_free_port("websocket", self.websocket_port)
 
     def _get_free_port(self, port_type: str, preferred_port: int) -> int:
         """
