@@ -15,7 +15,6 @@ import threading
 from openai import OpenAI
 from .constants import AgentStatus
 import platform
-import pyautogui
 from io import BytesIO
 
 # Set up logger
@@ -102,6 +101,8 @@ class Desktop:
         if self.host == 'local':
             if platform.system() == "Darwin":
                 self.environment = "mac"
+                # Import pyautogui only when needed in Mac environment
+                import pyautogui
                 self.screen_width, self.screen_height = pyautogui.size()
             else: 
                 self.environment = "linux"
@@ -411,7 +412,9 @@ class Desktop:
 
         # If running locally on MacOS
         if self.environment == "mac":
-            # macOS: Use PyAutoGUI to move the mouse and click.
+            # Import pyautogui only when needed
+            import pyautogui
+            # Use PyAutoGUI for macOS
             pyautogui.moveTo(x, y)
             pyautogui.click(x, y, button=click_type.lower())
             return  # macOS execution path; no fallback needed.
@@ -447,6 +450,8 @@ class Desktop:
 
         # If running locally on MacOS
         if self.environment == "mac":
+            # Import pyautogui only when needed
+            import pyautogui
             # Use PyAutoGUI for macOS
             pyautogui.moveTo(x, y)
             # Note: In pyautogui, a positive value scrolls up; since our convention is inverted,
@@ -502,6 +507,8 @@ class Desktop:
         # Check if running on macOS
         if self.environment == "mac":
             # Special handling for macOS using pyautogui.hotkey
+            import pyautogui
+
             modifiers = []
             regular_keys = []
 
@@ -586,6 +593,7 @@ class Desktop:
         # Check if running on macOS
         if self.environment == "mac":
             # On macOS, use PyAutoGUI to type the text directly.
+            import pyautogui
             pyautogui.write(text)
             return  # End execution for macOS.
 
@@ -618,6 +626,7 @@ class Desktop:
         # If running locally on MacOS
         if self.environment == "mac":
             # Use PyAutoGUI to capture the screenshot on macOS
+            import pyautogui
             screenshot = pyautogui.screenshot()
             # Save screenshot to a bytes buffer in PNG format
             buffered = BytesIO()
