@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Thread } from "@/components/assistant-ui/thread";
-import { Play, LoaderCircle, Apple, Lightbulb } from "lucide-react";
+import { Play, LoaderCircle, Lightbulb, LaptopMinimal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MyRuntimeProvider } from "@/components/assistant-ui/MyRuntimeProvider";
@@ -72,8 +72,10 @@ export default function Home() {
             variant={'outline'}
             onClick={() => handleStartContainer('local')}
           >
-            <Apple />            
-            Run locally (MacOS only)
+            <LaptopMinimal />    
+            <span className="flex flex-row gap-1 items-center">  
+            Run locally <p className="text-xs text-gray-400">MacOS only</p>
+            </span>
           </Button>
           </div>
         )}
