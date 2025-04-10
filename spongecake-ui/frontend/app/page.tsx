@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Thread } from "@/components/assistant-ui/thread";
-import { Play, LoaderCircle } from "lucide-react";
+import { Play, LoaderCircle, Apple, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MyRuntimeProvider } from "@/components/assistant-ui/MyRuntimeProvider";
@@ -64,7 +64,7 @@ export default function Home() {
             className="w-fit font-bold"
             onClick={() => handleStartContainer('')}
           >
-            {containerLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Desktop
+            {containerLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Docker Agent
           </Button>
           <Button
             // disabled={desktopLoading}
@@ -72,7 +72,8 @@ export default function Home() {
             variant={'outline'}
             onClick={() => handleStartContainer('local')}
           >
-            Start Local
+            <Apple />            
+            Run locally (MacOS only)
           </Button>
           </div>
         )}
@@ -113,17 +114,17 @@ export default function Home() {
         )}
         {/* Local mode - this will just show a chat window which will execute agent on local machine with no container */}
         {host === 'local' && (
-                    // <div className="grid grid-cols-3 gap-4 border w-full rounded p-2">
-                    // <div className="col-span-1 space-y-4 overflow-auto">
-                    //   {/* LEFT COLUMN: Chat Interface */}
-                      <div 
-                      style={{ height: "calc(100vh - 200px)" }} // subtract 100px or whatever value
-                      className=" flex flex-col border items-center mt-0 w-dvh rounded p-2">
-                        Make this window half the size of your screen
-                        <Thread />
-                      </div>
-                  //   </div>
-                  // </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex text-yellow-900 flex-row gap-1 bg-yellow-100 w-fit self-center p-3 rounded-lg">
+              <Lightbulb className="w-5 mr-1"/> 
+              <strong>Note: </strong>Ensure this window is always visible as the agent runs
+            </div>
+                <div 
+                style={{ height: "calc(100vh - 200px)" }} // subtract 100px or whatever value
+                className=" flex flex-col border items-center mt-0 w-dvh rounded p-2">
+                  <Thread />
+                </div>
+            </div>
           )}
 
 
