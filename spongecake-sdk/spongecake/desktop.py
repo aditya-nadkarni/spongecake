@@ -408,19 +408,20 @@ class Desktop:
         Move the mouse to (x, y) and click the specified button.
         click_type can be 'left', 'middle', or 'right'.
         """
-        logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
 
         # If running locally on MacOS
         if self.environment == "mac":
+            logger.info(f"Action: click at ({x * self.scale_factor if self.scale_factor else 1}, {y * self.scale_factor if self.scale_factor else 1}) with button '{click_type}'")
             # Import pyautogui only when needed
             import pyautogui
-            # Use PyAutoGUI for macOS
-            pyautogui.moveTo(x, y)
-            pyautogui.click(x, y, button=click_type.lower())
+            # macOS: Use PyAutoGUI to move the mouse and click.
+            pyautogui.moveTo(x * self.scale_factor if self.scale_factor else 1, y * self.scale_factor if self.scale_factor else 1)
+            pyautogui.click(x * self.scale_factor if self.scale_factor else 1, y * self.scale_factor if self.scale_factor else 1, button=click_type.lower())
             return  # macOS execution path; no fallback needed.
 
         # If running in container
         else:
+            logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
             # Prepare API request data
             json_data = {"type": "click", "x": x, "y": y, "button": click_type}
             
@@ -446,24 +447,25 @@ class Desktop:
         Negative scroll_y -> scroll up, positive -> scroll down.
         Negative scroll_x -> scroll left, positive -> scroll right (button 6 or 7).
         """
-        logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
 
         # If running locally on MacOS
         if self.environment == "mac":
+            logger.info(f"Action: scroll at ({x} * {self.scale_factor if self.scale_factor else 1}, {y} * {self.scale_factor if self.scale_factor else 1}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
             # Import pyautogui only when needed
             import pyautogui
             # Use PyAutoGUI for macOS
-            pyautogui.moveTo(x, y)
+            pyautogui.moveTo(x * self.scale_factor if self.scale_factor else 1, y * self.scale_factor if self.scale_factor else 1)
             # Note: In pyautogui, a positive value scrolls up; since our convention is inverted,
             # we call scroll() with the negative of scroll_y.
             if scroll_y:
-                pyautogui.scroll(-scroll_y, x=x, y=y)
+                pyautogui.scroll(-scroll_y, x=x * self.scale_factor if self.scale_factor else 1, y=y * self.scale_factor if self.scale_factor else 1)
             if scroll_x:
-                pyautogui.hscroll(-scroll_x, x=x, y=y)
+                pyautogui.hscroll(-scroll_x, x=x * self.scale_factor if self.scale_factor else 1, y=y * self.scale_factor if self.scale_factor else 1)
             return  # or return any relevant result if needed
 
         # If running in container
         else:
+            logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
             # Prepare API request data
             json_data = {"type": "scroll", "x": x, "y": y, "scroll_x": scroll_x, "scroll_y": scroll_y}
             

@@ -10,7 +10,7 @@ from flask_cors import CORS
 from marshmallow import ValidationError
 from spongecake import Desktop, AgentStatus
 from dotenv import load_dotenv
-
+import json 
 # Import from local modules
 from config import Config, setup_logging
 from schemas import RequestSchemas
@@ -129,7 +129,45 @@ class SpongecakeServer:
             logs.append(f"❌ {error_msg}")
             return logs, None
 
-    def run_agent_action(self, user_prompt: str, auto_mode: bool = False) -> Dict[str, Any]:
+    
+    # -------------------------
+    # Handlers for desktop agent statuses
+    # -------------------------
+    result = [None]
+
+    def complete_handler(self, data):
+        """COMPLETE -- Handle successful task data (just print out success message in this case)"""
+        for msg in data.output:
+            if hasattr(msg, "content"):
+                text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+                self.result[0] = text_parts
+        
+    def needs_input_handler(self, messages):
+        """NEEDS_INPUT -- Get input from the user, and pass it back to `action`"""
+        for msg in messages:
+            if hasattr(msg, "content"):
+                text_parts = [part.text for part in msg.content if hasattr(part, "text")]
+                self.result[0] = text_parts
+
+    def needs_safety_check_handler(self, safety_checks, pending_call):
+        # Check if the user has already acknowledged safety checks (set this flag in run_agent_action)
+        if getattr(self, "safety_ack", False):
+            # Instead of calling pending_call(True) (which relies on a callback you don't have),
+            # just return True to indicate that it's okay to continue.
+            return True
+
+        # Otherwise, capture the safety check messages to relay them to the front-end:
+        safety_messages = [check.message for check in safety_checks if hasattr(check, "message")]
+        self.result[0] = [{"pendingSafetyCheck": True, "messages": safety_messages}] # safety_messages
+        # Returning False tells the agent to wait until safety checks are acknowledged
+        return False
+
+    def error_handler(self, error_message):
+        """ERROR -- Handle errors (just print it out in this case)"""
+        print(f"😱 ERROR: {error_message}")
+        self.result[0] = None  # Just return None on error
+
+    def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False) -> Dict[str, Any]:
         """Run the agent logic in the Spongecake Desktop.
         
         Args:
@@ -140,9 +178,6 @@ class SpongecakeServer:
             Dictionary containing logs and agent response
         """
         logs = []
-        
-        # Ensure container is running
-        logs, _ = self.start_container_if_needed(logs)
         
         logs.append("\n👾 Performing desktop action...")
         
@@ -155,17 +190,20 @@ class SpongecakeServer:
             if auto_mode:
                 status, data = self.desktop.action(input_text=formatted_prompt, ignore_safety_and_input=True)
             else:
-                status, data = self.desktop.action(input_text=formatted_prompt, ignore_safety_and_input=False)
+                status, data = self.desktop.action(
+                    input_text=formatted_prompt,
+                    complete_handler=self.complete_handler,
+                    needs_input_handler=self.needs_input_handler,
+                    needs_safety_check_handler=self.needs_safety_check_handler,
+                    acknowledged_safety_checks=safety_ack,
+                    error_handler=self.error_handler
+                )
             
             if status == AgentStatus.ERROR:
                 logs.append(f"❌ Error in agent action: {data}")
                 agent_response = None
             else:
                 logs.append(f"✅ Agent status: {status}")
-                if (status == AgentStatus.COMPLETE):
-                    agent_response = data.output[1].content[0].text
-                else:
-                    agent_response = str(data[0].content[0].text)
                 
         except Exception as exc:
             error_msg = f"❌ Exception while running action: {exc}"
@@ -173,10 +211,23 @@ class SpongecakeServer:
             logger.error(error_msg, exc_info=True)
         
         logs.append("Done.\n")
-        
-        return {
-            "logs": logs,
-            "agent_response": agent_response
+        agent_response = self.result[0]
+
+        if (isinstance(agent_response, list) and agent_response and 
+            isinstance(agent_response[0], dict) and agent_response[0].get("pendingSafetyCheck")):
+            # Safety check is pending, return that directly as a JSON string.
+            return {
+                "logs": logs,
+                "agent_response": json.dumps({
+                    'pendingSafetyCheck': True,
+                    'messages': ["We've detected instructions that may cause your application to perform malicious or unauthorized actions. Please acknowledge this warning if you'd like to proceed."]
+                })
+            }
+        else:
+            # Otherwise, return the standard agent response.
+            return {
+                "logs": logs,
+                "agent_response": agent_response[0]
         }
 
     def api_start_container(self):
@@ -214,9 +265,10 @@ class SpongecakeServer:
             
             messages = validated_data.get("messages", "")
             auto_mode = validated_data.get("auto_mode", False)
+            safety_ack = validated_data.get("safety_acknowledged", False)
             
             # Run the agent action
-            result = self.run_agent_action(messages, auto_mode)
+            result = self.run_agent_action(messages, auto_mode=auto_mode, safety_ack=safety_ack)
             
             # Include the noVNC port in the response
             result["novncPort"] = self.novnc_port

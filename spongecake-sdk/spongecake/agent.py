@@ -547,7 +547,7 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             return AgentStatus.ERROR, self._error
             
         # Loop until we get a COMPLETE status or hit an error
-        max_iterations = 500  # Safety limit to prevent infinite loops
+        max_iterations = 5  # Safety limit to prevent infinite loops
         iteration = 0
         
         while iteration < max_iterations:
