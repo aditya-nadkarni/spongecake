@@ -51,9 +51,14 @@ const MyModelAdapter: ChatModelAdapter = {
           content: [{ type: "text", text: data.agent_response || "" }],
         };
       }
-    } catch (error) {
-      console.error("Error in run:", error);
-      throw error;
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        console.log('User cancelled send')
+        throw error
+      } else {
+        console.error("Error in run:", error);
+        throw error;
+      }
     }
   },
 };

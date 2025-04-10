@@ -57,7 +57,7 @@ export default function Home() {
     <MyRuntimeProvider>
       <main className="px-4 py-4 flex-col gap-3 flex items-center">
         <img src={Logo.src} alt="Spongecake Logo" width={300} />
-        {!containerStarted && (
+        {!containerStarted && host == '' && (
           <div className="flex flex-row gap-2">
           <Button
             disabled={containerLoading}
