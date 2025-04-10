@@ -98,12 +98,14 @@ class Desktop:
         self.container_started = False
 
         # Initialize environment
+        self.scale_factor = 1 # Default scale factor
         if self.host == 'local':
             if platform.system() == "Darwin":
                 self.environment = "mac"
                 # Import pyautogui only when needed in Mac environment
                 import pyautogui
                 self.screen_width, self.screen_height = pyautogui.size()
+                self.scale_factor = 0.96
             else: 
                 self.environment = "linux"
                 self.screen_width, self.screen_height = 1024, 768
