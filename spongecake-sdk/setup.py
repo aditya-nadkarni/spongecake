@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="spongecake",
-    version="0.1.9",
+    version="0.1.12",
     description="Open source SDK to launch OpenAI computer use agents",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -16,6 +16,7 @@ setup(
         "python-dotenv",  # If you're using dotenv, for example
         "requests",
         "marionette-driver>=3.0.0",  # For Firefox browser automation
+        "pyautogui",  # For automating actions locally on MacOS
         # etc.
     ],
     classifiers=[

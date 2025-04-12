@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spongecake"
-version = "0.1.9"
+version = "0.1.12"
 description = "Spongecake is the easiest way to launch OpenAI computer use agents."
 authors = [
   { name = "Terrell Marshall", email = "terrell@passage-team.com" },
@@ -19,6 +19,7 @@ dependencies = [
   "openai>=1.66.3",
   "python-dotenv>=0.17.1",
   "marionette-driver>=3.0.0",
+  "pyautogui>=0.9.54",
 ]
 
 # Optional: Additional project metadata

@@ -67,7 +67,7 @@ def error_handler(error_message):
 # -------------------------
 
 def main():
-    # Start up an isolated desktop. Edit desktop name, and docker_image if needed
+    # Start up an isolated desktop. Edit desktop name, and docker_image if needed. Set host='local' to not spin up a container and run the agent on your own machine (MacOS only)
     desktop = Desktop(name="newdesktop")
     container = desktop.start()
 
@@ -85,7 +85,7 @@ def main():
         user_prompt = user_prompt[5:].strip()
         print("\n🤖 Auto mode enabled - safety checks and input requests will be handled automatically")
     
-    # Open VNC connection to see the desktop, password is 'secret' (only works on mac)
+    # Open VNC connection to see the desktop, password is 'secret' (only works on mac and when spinning up a container)
     try:
         print('Attempting to open VNC connection to view Mac desktop, password is "secret"...')
         subprocess.run(["open", f"vnc://localhost:{desktop.vnc_port}"], check=True)

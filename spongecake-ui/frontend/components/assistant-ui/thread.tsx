@@ -124,6 +124,8 @@ const Composer: FC = () => {
         className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
       />
       <ComposerAction onSend={handleSubmit} />
+      {/* Uncomment this to add a cancel button. You will need to implement a way to cancel the agent from running on the backend */}
+      {/* <ComposerCancel onCancel={handleSubmit} /> */} 
     </ComposerPrimitive.Root>
   );
 };
@@ -141,6 +143,23 @@ const ComposerAction: FC<{ onSend: () => void }> = ({ onSend }) => {
           <SendHorizontalIcon />
         </TooltipIconButton>
       </ComposerPrimitive.Send>
+    </ThreadPrimitive.If>
+  );
+};
+
+const ComposerCancel: FC<{ onCancel: () => void }> = ({ onCancel }) => {
+  return (
+    <ThreadPrimitive.If running={true}>
+      <ComposerPrimitive.Cancel asChild>
+        <TooltipIconButton
+          tooltip="Cancel"
+          variant="default"
+          className="my-2.5 size-8 p-2 transition-opacity ease-in"
+          onClick={onCancel}
+        >
+          <CircleStopIcon />
+        </TooltipIconButton>
+      </ComposerPrimitive.Cancel>
     </ThreadPrimitive.If>
   );
 };

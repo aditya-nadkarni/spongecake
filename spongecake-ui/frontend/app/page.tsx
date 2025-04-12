@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Thread } from "@/components/assistant-ui/thread";
-import { Play, LoaderCircle } from "lucide-react";
+import { Play, LoaderCircle, Lightbulb, LaptopMinimal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MyRuntimeProvider } from "@/components/assistant-ui/MyRuntimeProvider";
@@ -13,14 +13,21 @@ export default function Home() {
   const [containerStarted, setContainerStarted] = useState(false);
   const [vncShown, setVncShown] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  const [desktopLoading, setDesktopLoading] = useState(false);
+  const [containerLoading, setContainerLoading] = useState(false);
   const [novncPort, setNovncPort] = useState<number>(6080); // Default port, will be updated
+  const [host, setHost] = useState("");
 
-  const handleStartContainer = async () => {
+  const handleStartContainer = async (host: string = "") => {
     try {
-      setDesktopLoading(true);
+      if(host != 'local') {
+        setContainerLoading(true);
+      }
       const resp = await fetch(`${API_BASE_URL}/api/start-container`, {
         method: "POST",
+        body: JSON.stringify({ host }),
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
       const data = await resp.json();
       console.log("Container logs:", data.logs);
@@ -31,12 +38,16 @@ export default function Home() {
         setNovncPort(data.novncPort);
       }
 
+      if(host != 'local') {
+        await new Promise(resolve => setTimeout(resolve, 3500));
+        setContainerStarted(true);
+        setVncShown(true);
+      } 
       // Wait for 2 seconds before showing the VNC viewer
-      await new Promise(resolve => setTimeout(resolve, 2000));
       setLogs(data.logs || []);
-      setContainerStarted(true);
-      setVncShown(true);
-      setDesktopLoading(false);
+
+      setHost(host);
+      setContainerLoading(false);
     } catch (error) {
       console.error("Error starting container:", error);
     }
@@ -46,14 +57,27 @@ export default function Home() {
     <MyRuntimeProvider>
       <main className="px-4 py-4 flex-col gap-3 flex items-center">
         <img src={Logo.src} alt="Spongecake Logo" width={300} />
-        {!containerStarted && (
+        {!containerStarted && host == '' && (
+          <div className="flex flex-row gap-2">
           <Button
-            disabled={desktopLoading}
+            disabled={containerLoading}
             className="w-fit font-bold"
-            onClick={handleStartContainer}
+            onClick={() => handleStartContainer('')}
           >
-            {desktopLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Desktop
+            {containerLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Docker Agent
           </Button>
+          <Button
+            // disabled={desktopLoading}
+            className="w-fit font-bold"
+            variant={'outline'}
+            onClick={() => handleStartContainer('local')}
+          >
+            <LaptopMinimal />    
+            <span className="flex flex-row gap-1 items-center">  
+            Run locally <p className="text-xs text-gray-400">MacOS only</p>
+            </span>
+          </Button>
+          </div>
         )}
         {/* View Logs */}
         {/* {logs.length > 0 && (
@@ -65,7 +89,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            )} */}
+            )}  */}
         {containerStarted && vncShown && (
 
           <div className="grid grid-cols-3 gap-4 border w-full rounded p-2">
@@ -90,6 +114,22 @@ export default function Home() {
             </div>
           </div>
         )}
+        {/* Local mode - this will just show a chat window which will execute agent on local machine with no container */}
+        {host === 'local' && (
+          <div className="flex flex-col gap-3">
+            <div className="flex text-yellow-900 flex-row gap-1 bg-yellow-100 w-fit self-center p-3 rounded-lg">
+              <Lightbulb className="w-5 mr-1"/> 
+              <strong>Note: </strong>Ensure this window is always visible as the agent runs
+            </div>
+                <div 
+                style={{ height: "calc(100vh - 200px)" }} // subtract 100px or whatever value
+                className=" flex flex-col border items-center mt-0 w-dvh rounded p-2">
+                  <Thread />
+                </div>
+            </div>
+          )}
+
+
       </main>
     </MyRuntimeProvider>
   );

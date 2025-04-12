@@ -17,6 +17,8 @@ from .constants import AgentStatus
 from .trace import Tracer, TraceConfig
 from typing import Optional
 import uuid
+import platform
+from io import BytesIO
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -46,7 +48,8 @@ GLOBAL_PORT_COUNTER = {
     "vnc": 5901,        # Next candidate if 5900 is busy
     "api": 8001,        # Next candidate if 8000 is busy
     "marionette": 3839, # Next candidate if 2828 is busy
-    "socat": 2829       # Next candidate if 3838 is busy
+    "socat": 2829,      # Next candidate if 3838 is busy
+    "websocket": 6081   # Next candidate if 6080 is busy
 }
 
 ################################
@@ -68,7 +71,7 @@ class Desktop:
       unavailable between the initial check and the actual container startup
     """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, host: str = None, openai_api_key: str = None, create_agent: bool = True, trace_config: Optional[TraceConfig] = None):
+    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, websocket_port: int = 6080, host: str = None, openai_api_key: str = None, create_agent: bool = True, trace_config: Optional[TraceConfig] = None):
         """
         Initialize a new Desktop instance.
         
@@ -79,7 +82,7 @@ class Desktop:
             api_port: Starting local port for API (will auto-increment if in use during container startup)
             marionette_port: Starting local port for Marionette (will auto-increment if in use during container startup)
             socat_port: Starting local port for Socat (will auto-increment if in use during container startup)
-            host: Hostname or IP address to connect to the API (default: localhost)
+            host: Hostname or IP address to connect to the API (default: localhost). Set host='local' to not use a container and use an agent on your local machine (only MacOS supported currently)
             openai_api_key: OpenAI API key for agent functionality
             create_agent: Whether to create an agent instance automatically
         """
@@ -93,9 +96,27 @@ class Desktop:
         self.api_port = api_port
         self.marionette_port = marionette_port
         self.socat_port = socat_port
+        self.websocket_port = websocket_port
         self.host = host
         self.container_started = False
         self.tracer = Tracer(trace_config)
+
+        # Initialize environment
+        self.scale_factor = 1 # Default scale factor
+        if self.host == 'local':
+            if platform.system() == "Darwin":
+                self.environment = "mac"
+                # Import pyautogui only when needed in Mac environment
+                import pyautogui
+                self.screen_width, self.screen_height = pyautogui.size()
+                self.scale_factor = 0.96
+            else: 
+                self.environment = "linux"
+                self.screen_width, self.screen_height = 1024, 768
+        else: 
+            # Docker container defaults
+            self.environment = "linux"
+            self.screen_width, self.screen_height = 1024, 768
         
         # Display a warning if host is specified but api_port is using the default value
         if self.host is not None and self.api_port is None:
@@ -172,6 +193,7 @@ class Desktop:
         CONTAINER_API_PORT = 8000
         CONTAINER_MARIONETTE_PORT = 3838
         CONTAINER_SOCAT_PORT = 2828
+        CONTAINER_WEBSOCKET_PORT = 6080
 
         # 1) Allocate all required ports in a single pass while holding a global lock.
         self._allocate_all_ports_threadsafe()
@@ -203,6 +225,7 @@ class Desktop:
                         f"{CONTAINER_API_PORT}/tcp": self.api_port,
                         f"{CONTAINER_MARIONETTE_PORT}/tcp": self.marionette_port,
                         f"{CONTAINER_SOCAT_PORT}/tcp": self.socat_port,
+                        f"{CONTAINER_WEBSOCKET_PORT}/tcp": self.websocket_port,
                     },
                 )
                 break
@@ -251,6 +274,7 @@ class Desktop:
             self.api_port = self._get_free_port("api", self.api_port)
             self.marionette_port = self._get_free_port("marionette", self.marionette_port)
             self.socat_port = self._get_free_port("socat", self.socat_port)
+            self.websocket_port = self._get_free_port("websocket", self.websocket_port)
 
     def _get_free_port(self, port_type: str, preferred_port: int) -> int:
         """
@@ -390,24 +414,36 @@ class Desktop:
         Move the mouse to (x, y) and click the specified button.
         click_type can be 'left', 'middle', or 'right'.
         """
-        logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
-        self.tracer.add_entry("click", x=x, y=y, button=click_type)
-        
-        # Prepare API request data
-        json_data = {"type": "click", "x": x, "y": y, "button": click_type}
-        
-        # Prepare fallback command
-        click_type_map = {"left": 1, "middle": 2, "wheel": 2, "right": 3}
-        t = click_type_map.get(click_type.lower(), 1)
-        fallback_cmd = f"export DISPLAY={self.display} && xdotool mousemove {x} {y} click {t}"
-        
-        # Call API with fallback
-        return self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+
+        # If running locally on MacOS
+        if self.environment == "mac":
+            logger.info(f"Action: click at ({x * self.scale_factor if self.scale_factor else 1}, {y * self.scale_factor if self.scale_factor else 1}) with button '{click_type}'")
+            # Import pyautogui only when needed
+            import pyautogui
+            # macOS: Use PyAutoGUI to move the mouse and click.
+            pyautogui.moveTo(x * self.scale_factor if self.scale_factor else 1, y * self.scale_factor if self.scale_factor else 1)
+            pyautogui.click(x * self.scale_factor if self.scale_factor else 1, y * self.scale_factor if self.scale_factor else 1, button=click_type.lower())
+            return  # macOS execution path; no fallback needed.
+
+        # If running in container
+        else:
+            logger.info(f"Action: click at ({x}, {y}) with button '{click_type}'")
+            self.tracer.add_entry("click", x=x, y=y, button=click_type)
+            # Prepare API request data
+            json_data = {"type": "click", "x": x, "y": y, "button": click_type}
+            
+            # Prepare fallback command
+            click_type_map = {"left": 1, "middle": 2, "wheel": 2, "right": 3}
+            t = click_type_map.get(click_type.lower(), 1)
+            fallback_cmd = f"export DISPLAY={self.display} && xdotool mousemove {x} {y} click {t}"
+            
+            # Call API with fallback
+            return self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
 
     # ----------------------------------------------------------------
     # SCROLL
@@ -418,37 +454,54 @@ class Desktop:
         Negative scroll_y -> scroll up, positive -> scroll down.
         Negative scroll_x -> scroll left, positive -> scroll right (button 6 or 7).
         """
-        logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
-        self.tracer.add_entry("scroll", x=x, y=y, scroll_x=scroll_x, scroll_y=scroll_y)
-        
-        # Prepare API request data
-        json_data = {"type": "scroll", "x": x, "y": y, "scroll_x": scroll_x, "scroll_y": scroll_y}
-        
-        # Prepare fallback command
-        fallback_cmds = [f"export DISPLAY={self.display} && xdotool mousemove {x} {y}"]
-        
-        # Vertical scroll (button 4 = up, button 5 = down)
-        if scroll_y != 0:
-            button = 4 if scroll_y < 0 else 5
-            for _ in range(3):
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool click {button}")
 
-        # Horizontal scroll (button 6 = left, button 7 = right)
-        if scroll_x != 0:
-            button = 6 if scroll_x < 0 else 7
-            for _ in range(3):
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool click {button}")
-        
-        # Join fallback commands with semicolons
-        fallback_cmd = " && ".join(fallback_cmds) if fallback_cmds else None
-        
-        # Call API with fallback
-        return self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+        # If running locally on MacOS
+        if self.environment == "mac":
+            logger.info(f"Action: scroll at ({x} * {self.scale_factor if self.scale_factor else 1}, {y} * {self.scale_factor if self.scale_factor else 1}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
+            # Import pyautogui only when needed
+            import pyautogui
+            # Use PyAutoGUI for macOS
+            pyautogui.moveTo(x * self.scale_factor if self.scale_factor else 1, y * self.scale_factor if self.scale_factor else 1)
+            # Note: In pyautogui, a positive value scrolls up; since our convention is inverted,
+            # we call scroll() with the negative of scroll_y.
+            if scroll_y:
+                pyautogui.scroll(-scroll_y, x=x * self.scale_factor if self.scale_factor else 1, y=y * self.scale_factor if self.scale_factor else 1)
+            if scroll_x:
+                pyautogui.hscroll(-scroll_x, x=x * self.scale_factor if self.scale_factor else 1, y=y * self.scale_factor if self.scale_factor else 1)
+            return  # or return any relevant result if needed
+
+        # If running in container
+        else:
+            logger.info(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
+            self.tracer.add_entry("scroll", x=x, y=y, scroll_x=scroll_x, scroll_y=scroll_y)
+            # Prepare API request data
+            json_data = {"type": "scroll", "x": x, "y": y, "scroll_x": scroll_x, "scroll_y": scroll_y}
+            
+            # Prepare fallback command
+            fallback_cmds = [f"export DISPLAY={self.display} && xdotool mousemove {x} {y}"]
+            
+            # Vertical scroll (button 4 = up, button 5 = down)
+            if scroll_y != 0:
+                button = 4 if scroll_y < 0 else 5
+                for _ in range(3):
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool click {button}")
+
+            # Horizontal scroll (button 6 = left, button 7 = right)
+            if scroll_x != 0:
+                button = 6 if scroll_x < 0 else 7
+                for _ in range(3):
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool click {button}")
+            
+            # Join fallback commands with semicolons
+            fallback_cmd = " && ".join(fallback_cmds) if fallback_cmds else None
+            
+            # Call API with fallback
+            return self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
 
     # ----------------------------------------------------------------
     # KEYPRESS
@@ -460,56 +513,84 @@ class Desktop:
         Example: keys=["CTRL","F"] -> Ctrl+F
         """
         logger.info(f"Action: keypress with keys: {keys}")
-        self.tracer.add_entry("keypress", keys=keys)
-        
-        # Prepare API request data
-        json_data = {"type": "keypress", "keys": keys}
-        
-        # Prepare fallback command
-        fallback_cmds = []
-        ctrl_pressed = False
-        shift_pressed = False
-        
-        for k in keys:
-            logger.info(f"  - key '{k}'")
-            
-            # Handle special modifiers
-            if k.upper() == 'CTRL':
-                logger.info("    => holding down CTRL")
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keydown ctrl")
-                ctrl_pressed = True
-            elif k.upper() == 'SHIFT':
-                logger.info("    => holding down SHIFT")
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keydown shift")
-                shift_pressed = True
-            # Check special keys
-            elif k.lower() == "enter":
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool key Return")
-            elif k.lower() == "space":
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool key space")
-            else:
-                # For normal alphabetic or punctuation
-                lower_k = k.lower()  # xdotool keys are typically lowercase
-                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool key '{lower_k}'")
 
-        # Release modifiers
-        if ctrl_pressed:
-            logger.info("    => releasing CTRL")
-            fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keyup ctrl")
-        if shift_pressed:
-            logger.info("    => releasing SHIFT")
-            fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keyup shift")
+        # Check if running on macOS
+        if self.environment == "mac":
+            # Special handling for macOS using pyautogui.hotkey
+            import pyautogui
+
+            modifiers = []
+            regular_keys = []
+
+            for k in keys:
+                if k.upper() in ["CTRL", "SHIFT", "CMD"]:
+                    modifiers.append(k.lower() if k.upper() != "CMD" else "command")  # pyautogui expects 'command'
+                else:
+                    regular_keys.append(k.lower())
+
+            # If we have modifiers + at least one key, use hotkey()
+            if modifiers and regular_keys:
+                for key in regular_keys:
+                    logger.info(f"    => pressing { '+'.join(modifiers) } + {key}")
+                    pyautogui.hotkey(*modifiers, key)
+            else:
+                # Just a regular keypress
+                for key in keys:
+                    pyautogui.press(key.lower())
+
+            return  # Exit after macOS handling
+                
+        # If running in container
+        else:
+            # Prepare API request data
+            json_data = {"type": "keypress", "keys": keys}
             
-        # Join fallback commands with semicolons
-        fallback_cmd = " && ".join(fallback_cmds) if fallback_cmds else None
-        
-        # Call API with fallback
-        return self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+            # Prepare fallback command
+            fallback_cmds = []
+            ctrl_pressed = False
+            shift_pressed = False
+            
+            self.tracer.add_entry("keypress", keys=keys)
+            for k in keys:
+                logger.info(f"  - key '{k}'")
+                
+                # Handle special modifiers
+                if k.upper() == 'CTRL':
+                    logger.info("    => holding down CTRL")
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keydown ctrl")
+                    ctrl_pressed = True
+                elif k.upper() == 'SHIFT':
+                    logger.info("    => holding down SHIFT")
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keydown shift")
+                    shift_pressed = True
+                # Check special keys
+                elif k.lower() == "enter":
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool key Return")
+                elif k.lower() == "space":
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool key space")
+                else:
+                    # For normal alphabetic or punctuation
+                    lower_k = k.lower()  # xdotool keys are typically lowercase
+                    fallback_cmds.append(f"export DISPLAY={self.display} && xdotool key '{lower_k}'")
+
+            # Release modifiers
+            if ctrl_pressed:
+                logger.info("    => releasing CTRL")
+                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keyup ctrl")
+            if shift_pressed:
+                logger.info("    => releasing SHIFT")
+                fallback_cmds.append(f"export DISPLAY={self.display} && xdotool keyup shift")
+                
+            # Join fallback commands with semicolons
+            fallback_cmd = " && ".join(fallback_cmds) if fallback_cmds else None
+            
+            # Call API with fallback
+            return self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
 
     # ----------------------------------------------------------------
     # TYPE
@@ -520,20 +601,29 @@ class Desktop:
         """
         logger.info(f"Action: type text: {text}")
         self.tracer.add_entry("type", text=text)
-        
-        # Prepare API request data
-        json_data = {"type": "type", "text": text}
-        
-        # Prepare fallback command
-        fallback_cmd = f"export DISPLAY={self.display} && xdotool type '{text}'"
-        
-        # Call API with fallback
-        return self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+
+        # Check if running on macOS
+        if self.environment == "mac":
+            # On macOS, use PyAutoGUI to type the text directly.
+            import pyautogui
+            pyautogui.write(text)
+            return  # End execution for macOS.
+
+        # If running in a container
+        else: 
+            # Prepare API request data
+            json_data = {"type": "type", "text": text}
+            
+            # Prepare fallback command
+            fallback_cmd = f"export DISPLAY={self.display} && xdotool type '{text}'"
+            
+            # Call API with fallback
+            return self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
     
     # ----------------------------------------------------------------
     # TAKE SCREENSHOT
@@ -545,19 +635,34 @@ class Desktop:
         """
         logger.info("Action: take screenshot")
         
-        # Prepare API request data
-        json_data = {"type": "screenshot"}
-        
-        # Prepare fallback command
-        fallback_cmd = f"export DISPLAY={self.display} && import -window root png:- | base64 -w 0"
-        
-        # Call API with fallback
-        response = self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+        # If running locally on MacOS
+        if self.environment == "mac":
+            # Use PyAutoGUI to capture the screenshot on macOS
+            import pyautogui
+            screenshot = pyautogui.screenshot()
+            # Save screenshot to a bytes buffer in PNG format
+            buffered = BytesIO()
+            screenshot.save(buffered, format="PNG")
+            screenshot_bytes = buffered.getvalue()
+            # Encode to base64
+            encoded = base64.b64encode(screenshot_bytes).decode("utf-8")
+            return encoded
+
+        # If running in container
+        else: 
+            # Prepare API request data
+            json_data = {"type": "screenshot"}
+            
+            # Prepare fallback command
+            fallback_cmd = f"export DISPLAY={self.display} && import -window root png:- | base64 -w 0"
+            
+            # Call API with fallback
+            response = self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
         
         # Extract screenshot data from response
         screenshot_bytes = None
@@ -582,20 +687,28 @@ class Desktop:
         """
         logger.info(f"Action: goto URL: {url}")
         self.tracer.add_entry("goto", url=url)
-        
-        # Prepare API request data
-        json_data = {"type": "goto", "url": url}
-        
-        # Prepare fallback command - add `&` at the end to run Firefox in background
-        fallback_cmd = f"export DISPLAY={self.display} && firefox-esr -new-tab {url} &"
-        
-        # Call API with fallback
-        return self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+
+        # If running on macOS (note: we need something specifically for Windows since we're using subprocess)
+        if self.environment == "mac":
+            # On macOS, open the URL using the default browser (or specify Firefox if needed)
+            subprocess.run(["open", url])
+            return
+
+        # If running in container
+        else: 
+            # Prepare API request data
+            json_data = {"type": "goto", "url": url}
+            
+            # Prepare fallback command - add `&` at the end to run Firefox in background
+            fallback_cmd = f"export DISPLAY={self.display} && firefox-esr -new-tab {url} &"
+            
+            # Call API with fallback
+            return self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
 
     # ----------------------------------------------------------------
     # WAIT
@@ -606,20 +719,28 @@ class Desktop:
         """
         logger.info(f"Action: wait for {seconds} seconds")
         self.tracer.add_entry("wait", seconds=seconds)
+
+        # Check if running on macOS
+        if self.environment == "mac":
+            # On macOS, just sleep using Python's time.sleep.
+            time.sleep(seconds)
+            return
         
-        # Prepare API request data
-        json_data = {"type": "wait", "seconds": seconds}
-        
-        # Prepare fallback command
-        fallback_cmd = f"sleep {seconds}"
-        
-        # Call API with fallback
-        return self._call_api_with_fallback(
-            endpoint="/action",
-            method="post",
-            json_data=json_data,
-            fallback_cmd=fallback_cmd
-        )
+        # If running in a container
+        else: 
+            # Prepare API request data
+            json_data = {"type": "wait", "seconds": seconds}
+            
+            # Prepare fallback command
+            fallback_cmd = f"sleep {seconds}"
+            
+            # Call API with fallback
+            return self._call_api_with_fallback(
+                endpoint="/action",
+                method="post",
+                json_data=json_data,
+                fallback_cmd=fallback_cmd
+            )
     
     # -------------------------
     # Agent Integration
