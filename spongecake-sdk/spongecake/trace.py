@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Any, Callable, Optional
 from contextlib import contextmanager
 
+# Set up a logger for tracing
 logger = logging.getLogger(__name__)
 
 class TraceEntry:
@@ -13,16 +14,17 @@ class TraceEntry:
         self.data = kwargs
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert the trace entry to a dictionary format."""
         return {"action_type": self.action_type, "timestamp": self.timestamp, **self.data}
 
 class TraceConfig:
-    """Configuration for tracing behavior."""
+    """Configuration class for managing tracing behavior."""
     def __init__(
         self,
-        enabled: bool = True,
-        trace_api_calls: bool = False,
-        trace_screenshots: bool=False,
-        callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        enabled: bool = True,  # Enable or disable tracing
+        trace_api_calls: bool = False,  # Flag to trace API calls
+        trace_screenshots: bool = False,  # Flag to trace screenshots
+        callback: Optional[Callable[[Dict[str, Any]], None]] = None  # Callback function for trace data
     ):
         self.enabled = enabled
         self.trace_api_calls = trace_api_calls
@@ -38,10 +40,14 @@ class Tracer:
     def start(self, trace_id: str) -> None:
         """Start a new trace if tracing is enabled."""
         if self.config.enabled and not self.current_trace:
-            self.current_trace = {"trace_id": trace_id, "start_time": time.time(), "entries": []}
+            self.current_trace = {
+                "trace_id": trace_id,  # Unique identifier for the trace
+                "start_time": time.time(),  # Start time of the trace
+                "entries": []  # List to store trace entries
+            }
 
     def stop(self) -> None:
-        """Stop the current trace and process it."""
+        """Stop the current trace session and process the collected data."""
         if self.current_trace:
             self.current_trace["end_time"] = time.time()
             trace_data = self.current_trace
@@ -66,9 +72,9 @@ class Tracer:
 
     @contextmanager
     def trace(self, trace_id: str):
-        """Context manager for scoped tracing."""
-        self.start(trace_id)
+        """Context manager for scoped tracing, automatically starts and stops tracing."""
+        self.start(trace_id)  # Start tracing
         try:
-            yield
+            yield  # Allow code execution within the trace context
         finally:
-            self.stop()
+            self.stop()  # Ensure tracing is stopped after execution
