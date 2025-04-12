@@ -132,8 +132,7 @@ def main():
                 complete_handler=complete_handler,
                 needs_input_handler=needs_input_handler,
                 needs_safety_check_handler=needs_safety_check_handler,
-                error_handler=error_handler,
-                trace_id="some_id"
+                error_handler=error_handler
             )
 
         # Show final results

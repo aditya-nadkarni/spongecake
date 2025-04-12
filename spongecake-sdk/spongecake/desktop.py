@@ -16,6 +16,7 @@ from openai import OpenAI
 from .constants import AgentStatus
 from .trace import Tracer, TraceConfig
 from typing import Optional
+import uuid
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -566,7 +567,7 @@ class Desktop:
             # If the response comes from the fallback command
             screenshot_bytes = response["result"]
         if self.tracer.config.trace_screenshots:
-            self.tracer.add_entry("screenshot", screeshot=f"data:image/png;base64,{screenshot_bytes}")
+            self.tracer.add_entry("screenshot", screenshot=f"data:image/png;base64,{screenshot_bytes}")
         return screenshot_bytes
     
     # ----------------------------------------------------------------
@@ -725,7 +726,7 @@ class Desktop:
         return self.get_agent().get_page_html(query)
             
     def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
-              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, trace_id: Optional[str] = None, **kwargs):
+              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, **kwargs):
         """
         New and improved action command: Execute an action in the desktop environment. This method delegates to the agent's action method.
         
@@ -756,8 +757,7 @@ class Desktop:
             - status is an AgentStatus enum value indicating the result
             - data contains relevant information based on the status
         """
-        if trace_id:
-            self.tracer.start(trace_id)
+        self.tracer.start(str(uuid.uuid4()))
         try:
             # Look for old-style keys in **kwargs:
             old_input = kwargs.get("input")
@@ -796,8 +796,7 @@ class Desktop:
             )
 
         finally:
-            if trace_id:
-                self.tracer.stop()
+            self.tracer.stop()
     
     # exposes context manager for a given trace 
     def trace(self, trace_id: str):
