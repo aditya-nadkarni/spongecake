@@ -62,6 +62,11 @@ LOGGING_CONFIG = {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': True
+        },
+        'spongecake': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True
         }
     }
 }

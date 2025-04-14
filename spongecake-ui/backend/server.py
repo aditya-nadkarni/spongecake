@@ -2,10 +2,14 @@ import logging
 import os
 import subprocess
 import sys
+import threading
+import queue
+import time
+import uuid
 from contextlib import contextmanager
 from typing import Dict, List, Optional, Tuple, Any, Union
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response, stream_with_context
 from flask_cors import CORS
 from marshmallow import ValidationError
 from spongecake import Desktop, AgentStatus
@@ -22,6 +26,24 @@ load_dotenv()
 # Setup logging
 logger = setup_logging()
 
+# Custom log handler to capture logs for streaming
+class QueueHandler(logging.Handler):
+    def __init__(self, log_queue):
+        super().__init__()
+        self.log_queue = log_queue
+        self.formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+
+    def emit(self, record):
+        # Format the log message
+        formatted_msg = self.formatter.format(record)
+        
+        # Only capture logs from the Spongecake SDK
+        if record.name.startswith('spongecake'):
+            # Print to console for debugging
+            print(f"CAPTURED LOG: {formatted_msg}")
+            # Send to queue for streaming
+            self.log_queue.put(formatted_msg)
+
 
 class SpongecakeServer:
     """Main server class for the Spongecake application."""
@@ -29,6 +51,8 @@ class SpongecakeServer:
     def __init__(self, host: str = "0.0.0.0", port: int = Config.FLASK_PORT):
         """Initialize the server with Flask app and configuration."""
         self.app = Flask(__name__)
+        # Dictionary to store active log streaming sessions
+        self.active_sessions = {}
         CORS(self.app)
         self.desktop = None
         self.novnc_port = None
@@ -43,6 +67,7 @@ class SpongecakeServer:
         self.app.route("/api/start-container", methods=["POST"])(self.api_start_container)
         self.app.route("/api/run-agent", methods=["POST"])(self.api_run_agent)
         self.app.route("/api/health", methods=["GET"])(self.health_check)
+        self.app.route("/api/logs/<session_id>", methods=["GET"])(self.stream_logs)
     
 
     
@@ -167,19 +192,24 @@ class SpongecakeServer:
         print(f"😱 ERROR: {error_message}")
         self.result[0] = None  # Just return None on error
 
-    def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False) -> Dict[str, Any]:
+    def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False, log_queue=None) -> Dict[str, Any]:
         """Run the agent logic in the Spongecake Desktop.
         
         Args:
             user_prompt: The user's prompt to the agent
             auto_mode: Whether to run in auto mode (ignore safety checks)
+            safety_ack: Whether safety checks have been acknowledged
+            log_queue: Queue to send logs to for streaming
             
         Returns:
             Dictionary containing logs and agent response
         """
         logs = []
         
-        logs.append("\n👾 Performing desktop action...")
+        # We don't need to manually add logs to the queue anymore since
+        # the QueueHandler will capture all Spongecake SDK logs automatically
+        log_msg = "\n👾 Performing desktop action..."
+        logs.append(log_msg)
         
         formatted_prompt = f"{user_prompt}\n{Config.DEFAULT_PROMPT_SUFFIX}"
         
@@ -200,17 +230,20 @@ class SpongecakeServer:
                 )
             
             if status == AgentStatus.ERROR:
-                logs.append(f"❌ Error in agent action: {data}")
+                log_msg = f"❌ Error in agent action: {data}"
+                logs.append(log_msg)
                 agent_response = None
             else:
-                logs.append(f"✅ Agent status: {status}")
+                log_msg = f"✅ Agent status: {status}"
+                logs.append(log_msg)
                 
         except Exception as exc:
             error_msg = f"❌ Exception while running action: {exc}"
             logs.append(error_msg)
             logger.error(error_msg, exc_info=True)
         
-        logs.append("Done.\n")
+        log_msg = "Done.\n"
+        logs.append(log_msg)
         agent_response = self.result[0]
 
         if (isinstance(agent_response, list) and agent_response and 
@@ -244,6 +277,52 @@ class SpongecakeServer:
             "novncPort": port
         })
     
+    def stream_logs(self, session_id):
+        """Stream logs for a specific session.
+        
+        Args:
+            session_id: The session ID to stream logs for
+            
+        Returns:
+            A streaming response with logs
+        """
+        if session_id not in self.active_sessions:
+            return jsonify({"error": "Session not found"}), 404
+        
+        log_queue = self.active_sessions[session_id]
+        
+        def generate():
+            while True:
+                try:
+                    # Try to get a message from the queue with a timeout
+                    msg = log_queue.get(timeout=1)
+                    
+                    # Check if this is the end of the stream
+                    if msg == "END_OF_STREAM":
+                        yield "data: {\"type\": \"complete\", \"message\": \"Task completed\"}\n\n"
+                        break
+                    
+                    # Check if this is a JSON message (result or other structured data)
+                    if msg.startswith('{'): 
+                        try:
+                            # Pass through the JSON message with its original type
+                            yield f"data: {msg}\n\n"
+                        except:
+                            # If there's an error parsing, treat as a regular log
+                            yield f"data: {json.dumps({'type': 'log', 'message': msg + '\n'})}\n\n"
+                    else:
+                        # Regular log message
+                        yield f"data: {json.dumps({'type': 'log', 'message': msg + '\n'})}\n\n"
+                except queue.Empty:
+                    # Send heartbeat to keep connection alive
+                    yield "data: {\"type\": \"heartbeat\"}\n\n"
+        
+        response = Response(stream_with_context(generate()), 
+                           content_type='text/event-stream')
+        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['X-Accel-Buffering'] = 'no'
+        return response
+
     def api_run_agent(self):
         """API endpoint to run an agent action.
         
@@ -267,17 +346,114 @@ class SpongecakeServer:
             auto_mode = validated_data.get("auto_mode", False)
             safety_ack = validated_data.get("safety_acknowledged", False)
             
-            # Run the agent action
-            result = self.run_agent_action(messages, auto_mode=auto_mode, safety_ack=safety_ack)
+            # Create a new session for log streaming
+            session_id = str(uuid.uuid4())
+            log_queue = queue.Queue()
+            self.active_sessions[session_id] = log_queue
             
-            # Include the noVNC port in the response
-            result["novncPort"] = self.novnc_port
+            # Start agent action in a background thread
+            thread = threading.Thread(
+                    target=self._run_agent_in_thread,
+                    args=(messages, auto_mode, safety_ack, log_queue, session_id)
+                )
+            try:
+                thread.daemon = True
+                thread.start()
+            except Exception as e:
+                thread.stop()
             
-            return jsonify(result)
+            # Return session ID to frontend for connecting to log stream
+            return jsonify({
+                "session_id": session_id,
+                "novncPort": self.novnc_port
+            })
             
         except Exception as e:
             logger.error(f"Error in api_run_agent: {e}", exc_info=True)
             return jsonify({"error": str(e)}), 500
+            
+    def _run_agent_in_thread(self, messages, auto_mode, safety_ack, log_queue, session_id):
+        """Run agent action in a background thread and stream logs."""
+        # Set up log capture for all Spongecake SDK modules
+        # This captures logs from both spongecake.desktop and spongecake.agent
+        queue_handler = QueueHandler(log_queue)
+        
+        # Get the root logger to capture all logs
+        root_logger = logging.getLogger()
+        
+        # Store original handlers and level to restore later
+        original_handlers = root_logger.handlers.copy()
+        original_level = root_logger.level
+        
+        # Set to DEBUG level to capture all logs
+        root_logger.setLevel(logging.DEBUG)
+        root_logger.addHandler(queue_handler)
+        
+        # Also set specific loggers to DEBUG level
+        logging.getLogger('spongecake').setLevel(logging.DEBUG)
+        logging.getLogger('spongecake.desktop').setLevel(logging.DEBUG)
+        logging.getLogger('spongecake.agent').setLevel(logging.DEBUG)
+        
+        # Send an initial log message
+        log_queue.put("Starting Spongecake agent action...")
+        print("Starting Spongecake agent action...")
+        
+        try:
+            # Run the agent action
+            result = self.run_agent_action(
+                messages, 
+                auto_mode=auto_mode, 
+                safety_ack=safety_ack,
+                log_queue=log_queue
+            )
+            
+            # Send the result to the log queue - send as a raw JSON string
+            result_json = json.dumps({
+                "type": "result",
+                "data": result
+            })
+            log_queue.put(result_json)
+            
+        except Exception as e:
+            # Log the error and send it to the client
+            error_msg = f"Error in agent thread: {str(e)}"
+            logger.exception(error_msg)
+            log_queue.put(error_msg)
+            
+            # Send error result as a raw JSON string
+            error_result = json.dumps({
+                "type": "result",
+                "data": {"error": error_msg, "agent_response": f"Error: {str(e)}"}
+            })
+            log_queue.put(error_result)
+            
+        finally:
+            # Print information about logs captured
+            print("\n==== FINISHED CAPTURING LOGS ====")
+            
+            # Restore original log level and handlers
+            root_logger.setLevel(original_level)
+            root_logger.removeHandler(queue_handler)
+            
+            # Restore original handlers if they were removed
+            for handler in original_handlers:
+                if handler not in root_logger.handlers:
+                    root_logger.addHandler(handler)
+                    
+            print("Restored original logger configuration")
+            
+            # Signal end of stream
+            log_queue.put("END_OF_STREAM")
+            
+            # Clean up after a delay to ensure all messages are processed
+            def cleanup_session():
+                time.sleep(60)  # Keep session alive for 1 minute after completion
+                if session_id in self.active_sessions:
+                    del self.active_sessions[session_id]
+            
+            cleanup_thread = threading.Thread(target=cleanup_session)
+            cleanup_thread.daemon = True
+            cleanup_thread.start()
     
     def health_check(self):
         """API endpoint to check the health of the server.
