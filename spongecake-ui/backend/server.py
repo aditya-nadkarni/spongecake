@@ -253,7 +253,7 @@ class SpongecakeServer:
                 "logs": logs,
                 "agent_response": json.dumps({
                     'pendingSafetyCheck': True,
-                    'messages': ["We've detected instructions that may cause your application to perform malicious or unauthorized actions. Please acknowledge this warning if you'd like to proceed."]
+                    'messages': ["We've detected instructions that may cause your application to perform malicious or unauthorized actions. Please acknowledge this warning if you'd like to proceed. Type 'ack' to acknowledge and proceed."]
                 })
             }
         else:
