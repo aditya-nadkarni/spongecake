@@ -53,6 +53,29 @@ class QueueHandler(logging.Handler):
             self.log_queue.put(json.dumps(log_data))
 
 
+@contextmanager
+def launch_cursor_overlay():
+    """
+    Context manager that launches the cursor overlay as a separate process,
+    and ensures it is terminated when done.
+    """
+    from contextlib import contextmanager
+    import subprocess
+    # Start the overlay script (adjust the path if necessary)
+    process = subprocess.Popen(["python3", "cursor_overlay.py"])
+    try:
+        yield process
+    finally:
+        process.terminate()
+        process.wait()
+
+# This was created to ensure no cursor overlay is applied when running an agent in a Docker container 
+class DockerContext:
+    def __enter__(self):
+        return None 
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
 class SpongecakeServer:
     """Main server class for the Spongecake application."""
 
@@ -207,7 +230,7 @@ class SpongecakeServer:
         self.result[0] = None  # Just return None on error
 
     def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False, log_queue=None, stop_event=None) -> Dict[str, Any]:
-        """Run the agent logic in the Spongecake Desktop.
+        """Run the agent logic in the Spongecake Desktop (while showing the custom cursor overlay if running locally)
         
         Args:
             user_prompt: The user's prompt to the agent
@@ -219,6 +242,7 @@ class SpongecakeServer:
             Dictionary containing logs and agent response
         """
         logs = []
+        logs.append("\n👾 Performing desktop action with overlay...")
         
         # We don't need to manually add logs to the queue anymore since
         # the QueueHandler will capture all Spongecake SDK logs automatically
@@ -233,11 +257,13 @@ class SpongecakeServer:
         try:
             # Create a wrapper for desktop.action that checks the stop_event
             def run_with_cancellation_check():
-                # Run the agent action
-                if auto_mode:
-                    return self.desktop.action(input_text=formatted_prompt, ignore_safety_and_input=True, stop_event=stop_event)
-                else:
-                    return self.desktop.action(
+                context = launch_cursor_overlay() if self.desktop.host == 'local' else DockerContext()
+                with context:
+                    # Run the agent action
+                    if auto_mode:
+                        return self.desktop.action(input_text=formatted_prompt, ignore_safety_and_input=True, stop_event=stop_event)
+                    else:
+                        return self.desktop.action(
                         input_text=formatted_prompt,
                         complete_handler=self.complete_handler,
                         needs_input_handler=self.needs_input_handler,
@@ -269,7 +295,6 @@ class SpongecakeServer:
 
         if (isinstance(agent_response, list) and agent_response and 
             isinstance(agent_response[0], dict) and agent_response[0].get("pendingSafetyCheck")):
-            # Safety check is pending, return that directly as a JSON string.
             return {
                 "logs": logs,
                 "agent_response": json.dumps({
@@ -278,11 +303,11 @@ class SpongecakeServer:
                 })
             }
         else:
-            # Otherwise, return the standard agent response.
             return {
                 "logs": logs,
                 "agent_response": agent_response[0]
-        }
+            }
+
 
     def api_start_container(self):
         """API endpoint to start the container and noVNC server.
