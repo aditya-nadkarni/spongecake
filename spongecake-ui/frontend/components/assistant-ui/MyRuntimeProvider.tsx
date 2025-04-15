@@ -1,100 +1,43 @@
 "use client";
- 
+
 import { ReactNode, useEffect } from "react";
 import {
   AssistantRuntimeProvider,
   useLocalRuntime,
   type ChatModelAdapter,
 } from "@assistant-ui/react";
-import { API_BASE_URL } from "@/config";
 
-// Global variables to track the EventSource connection and current session ID
-let eventSource: EventSource | null = null;
-let currentSessionId: string | null = null;
+// Import services
+import { AgentService } from "@/services/AgentService";
+import { createLogStream, cancelLogStream } from "@/services/LogStreamService";
+import { ResponseParser } from "@/services/ResponseParser";
 
-// Make currentSessionId accessible globally for the ComposerCancel component
-if (typeof window !== 'undefined') {
-  (window as any).currentSessionId = null;
-}
+// Import session context
+import { useSession } from "./SessionContext";
 
-/**
- * Creates a ReadableStream from an EventSource connection to the backend log stream.
- * This allows us to process SSE events as a stream that can be consumed by the AsyncGenerator.
- * 
- * @param url - The URL to connect to for server-sent events
- * @returns A ReadableStream that emits parsed JSON objects from the event source
- */
-function createEventSourceStream(url: string): ReadableStream<any> {
-  return new ReadableStream({
-    start(controller) {
-      // Close any existing event source to prevent multiple connections
-      if (eventSource) {
-        eventSource.close();
-      }
-      
-      // Create a new EventSource connection to the server
-      eventSource = new EventSource(url);
-      
-      // Set up event handler for incoming messages
-      if (eventSource) {
-        eventSource.onmessage = (event) => {
-        try {
-          console.log(event.data) // Debug: log raw event data
-          
-          // Parse the JSON data from the event
-          const data = JSON.parse(event.data);
-          
-          // Add the parsed data to the stream
-          controller.enqueue(data);
-          
-          // If this is the completion message, close the stream and clean up
-          if (data.type === 'complete') {
-            controller.close();
-            if (eventSource) {
-              eventSource.close();
-              eventSource = null;
-            }
-          }
-        } catch (error) {
-          // Handle JSON parsing errors
-          console.error('Error parsing event data:', error);
-          controller.error(error);
-        }
-      };
-      }
-      
-      // Set up error handler for the EventSource
-      if (eventSource) {
-        eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        controller.error(error);
-        
-        // Clean up on error
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-      };
-      }
-    },
-    // Clean up function called when the stream is cancelled
-    cancel() {
-      // Ensure the EventSource is properly closed
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
-      
-      // Clear the session ID
-      currentSessionId = null;
-      
-      // Also clear from window
-      if (typeof window !== 'undefined') {
-        (window as any).currentSessionId = null;
-      }
+// Create a global variable for session ID access from components
+// This makes it easier to pass the session ID around without complex typing
+type SessionManager = {
+  setSessionId: (id: string | null) => void;
+  getSessionId: () => string | null;
+};
+
+export const sessionManager: SessionManager = {
+  setSessionId: (id: string | null) => {
+    console.log(`Global session manager: Setting ID to ${id}`);
+    // Update in window for backwards compatibility
+    if (typeof window !== 'undefined') {
+      (window as any).currentSessionId = id;
     }
-  });
-}
+  },
+  getSessionId: () => {
+    // Read from window for backwards compatibility
+    if (typeof window !== 'undefined') {
+      return (window as any).currentSessionId || null;
+    }
+    return null;
+  }
+};
 
 /**
  * The ChatModelAdapter implementation for the Spongecake SDK.
@@ -105,284 +48,133 @@ const MyModelAdapter: ChatModelAdapter = {
    * Main run function that processes user messages and streams responses.
    * Implemented as an AsyncGenerator to support streaming responses.
    */
-  async *run({ messages, abortSignal }) {
+  async *run(options: { messages: any; abortSignal?: AbortSignal }) {
     try {
+      // Extract options
+      const { messages, abortSignal } = options;
+      
+      // Set up abort listener for debugging
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', () => {
+          console.log('Abort signal triggered!', new Date().toISOString());
+        });
+      }
+      
       // Extract the last message from the user
       const lastMessage = (messages[messages.length - 1]?.content[0] as { text?: string })?.text || "";
       
       // Check if this is an acknowledgment for a safety check
-      // If the user types "ack" or "acknowledged", we'll pass that to the backend
       const isAck = ["ack", "acknowledged", "y", "yes"].includes(
         lastMessage?.trim().toLowerCase() || ""
       );
       
       // Send initial call to start an agent action
-      const result = await fetch(`${API_BASE_URL}/api/run-agent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: lastMessage, safety_acknowledged: isAck }),
-        signal: abortSignal, // Support for cancellation
+      const data = await AgentService.runAgent({
+        messages: lastMessage,
+        safetyAcknowledged: isAck,
+        abortSignal
       });
       
-      // Handle HTTP errors
-      if (!result.ok) {
-        throw new Error(`Server error: ${result.status}`);
-      }
-      
-      // Parse the initial response
-      const data = await result.json();
-      
-      /*
-       * Stream logs from the backend to the frontend to track what the agent is doing
-       */
+      // If we have a session ID, store it in our session manager
       if (data.session_id) {
-        // Show initial "Processing" message while waiting for logs
-        yield {
-          content: [{
-            type: "text" as const,
-            text: "Processing your request...\n"
-          }],
-        };
-        
-
-        // Use the session ID returned from the backend
-        const sessionId = data.session_id;
-        const logStreamUrl = `${API_BASE_URL}/api/logs/${sessionId}`;
-        
-        // Store session ID in global variable for cancellation access
-        currentSessionId = sessionId;
-        
-        // Make it accessible to window for the ComposerCancel component
-        if (typeof window !== 'undefined') {
-          (window as any).currentSessionId = sessionId;
-        }
-        
-        console.log(`Creating event source for session ${sessionId} at ${logStreamUrl}`);
-        
-        // Connect to the log stream endpoint to see what the agent is doing (using SSE)
-        const stream = createEventSourceStream(logStreamUrl);
-        const reader = stream.getReader();
-        
-        // State variables to track streaming progress
-        const actionLogs: string[] = []; // Store filtered action logs
-        let finalResponse: string | null = null; // Store the final agent response
-        let shouldStop = false; // Flag to control the streaming loop
-
-        try {
-          // Main streaming loop - continues until shouldStop is true
-          while (!shouldStop) {
-            const { done, value } = await reader.read();
-            
-            // Exit if the stream is done
-            if (done) break;
-            
-            // Process different message types from the backend
-            // Process an agent action log
-            if (value.type === 'log') {
-              const logMessage = value.message;
-              
-              // Filter logs to only show logs that reference an agent action
-              if (logMessage.includes(" - Action: ")) {
-                const actionPart = logMessage.split(" - Action: ")[1];
-                actionLogs.push("Action: " + actionPart);
-                
-                // Update the chat with the action taken
-                yield {
-                  content: [{
-                    type: "text" as const,
-                    text: "\n" + actionLogs.join("\n") + "\n"
-                  }],
-                };
-              }
-            }
-            // Process a result message - either when the agent needs further input, safety check acknowledgment, or a task complete response
-            else if (value.type === 'result') {
-              if (value.data) {
-                try {
-                  // Agent response can either be an object or a single string
-                  if (typeof value.data.agent_response === 'object' && value.data.agent_response.messages) {
-                    finalResponse = value.data.agent_response.messages.join("\n");
-                  } else if (typeof value.data.agent_response === 'string') {
-                    try {
-                      const responseObj = JSON.parse(value.data.agent_response);
-                      if (responseObj.messages && Array.isArray(responseObj.messages)) {
-                        // Extract and join messages from parsed JSON
-                        finalResponse = responseObj.messages.join("\n");
-                      } else {
-                        // Use the raw string if no messages array
-                        finalResponse = value.data.agent_response;
-                      }
-                    } catch (e) {
-                      // Not valid JSON, use the string as is
-                      finalResponse = value.data.agent_response;
-                    }
-                  } else {
-                    // Handle non-string, non-object responses
-                    finalResponse = String(value.data.agent_response);
-                  }
-                } catch (e) {
-                  // Log and handle any errors in processing the result
-                  console.error("Error processing result:", e);
-                  finalResponse = "Error processing response";
-                }
-                
-                // Set flag to stop the streaming loop
-                shouldStop = true;
-                
-                // Yield the final response, which replaces all previous content
-                // This is the message that will remain in the chat after processing
-                yield {
-                  content: [{
-                    type: "text" as const,
-                    text: finalResponse + "\n"
-                  }],
-                };
-              }
-            }
-          }
-        } finally {
-          // Release the reader lock to prevent memory leaks
-          reader.releaseLock();
-        }
+        console.log(`Setting session ID: ${data.session_id}`);
+        sessionManager.setSessionId(data.session_id);
       }
-
-      // Handle direct responses (non-streaming mode)
-      // This path is taken when the backend doesn't provide a session_id for streaming
+      
+      // Handle direct responses (no session ID)
       if (!data.session_id) {
-        // Validate that we have a response
-        if (!data.agent_response) {
-          throw new Error("Expected agent_response to be provided");
+        // Check for errors
+        if (data.error) {
+          throw new Error(data.error);
         }
-
-        // Handle safety check responses
-        if (data.pendingSafetyCheck || (data.agent_response && data.agent_response.includes("pendingSafetyCheck"))) {
-          try {
-            let messages: string[] = [];
-            
-            // Extract messages from different safety check formats
-            if (data.pendingSafetyCheck && data.agent_response && data.agent_response.messages) {
-              // Format 1: Direct object with messages array
-              messages = data.agent_response.messages;
-            } else if (data.agent_response && typeof data.agent_response === 'string') {
-              // Format 2: JSON string that needs parsing
-              const safetyCheckObject = JSON.parse(data.agent_response);
-              if (safetyCheckObject.messages) {
-                messages = safetyCheckObject.messages;
-              }
-            }
-            
-            // Display safety check message with instructions
-            yield {
-              content: [
-                {
-                  type: "text" as const,
-                  text:
-                    (messages.length > 0 ? messages.join("\n") : 'Safety check required') +
-                    '\n\nType "ack" to acknowledge and proceed.\n',
-                },
-              ],
-            };
-          } catch (e) {
-            // Fallback message if parsing fails
-            yield {
-              content: [
-                {
-                  type: "text" as const,
-                  text: 'Safety check required. Type "ack" to acknowledge and proceed.\n',
-                },
-              ],
-            };
-          }
+        
+        // Let ResponseParser handle all the parsing logic
+        if (ResponseParser.isSafetyCheckResponse(data)) {
+          yield ResponseParser.parseSafetyCheckResponse(data);
         } else {
-          // Regular direct response (non-safety check)
-          yield {
-            content: [{ type: "text" as const, text: (data.agent_response || "") + "\n" }],
-          };
+          yield ResponseParser.parseAgentResponse(data);
         }
+        return;
+      }
+      
+      // Show initial "Processing" message while waiting for logs
+      yield ResponseParser.createProcessingResponse();
+      
+      // Create a stream from the server-sent events
+      const stream = createLogStream(data.session_id);
+      const reader = stream.getReader();
+      
+      // Process the stream
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          // Parse the log event
+          const response = ResponseParser.parseLogEvent(value);
+          if (response) yield response;
+          
+          // If this is a completion message, break the loop
+          if (value.type === 'complete' || value.type === 'result') break;
+        }
+      } finally {
+        // Make sure to release the reader
+        reader.releaseLock();
       }
     } catch (error: any) {
       // Handle user cancellation (abort) separately from other errors
       if (error?.name === "AbortError") {
-        console.log('User cancelled send')
-        // Clean up resources when request is cancelled
-        // if (eventSource) {
-        //   eventSource.close();
-        //   eventSource = null;
-        // }
-
-        console.log('User cancelled request');
+        console.log('User cancelled request via AbortError', error);
         
         try {
-          // Extract session ID from the EventSource URL if available
-          if (eventSource?.url) {
-            const urlParts = eventSource.url.split('/');
-            const sessionId = urlParts[urlParts.length - 1];
-            
-            if (sessionId) {
-              console.log(`Sending cancellation request for session ${sessionId}`);
-              // Call the backend cancellation endpoint
-              fetch(`${API_BASE_URL}/api/cancel-agent/${sessionId}`, {
-                method: 'POST',
-              }).catch(e => console.error('Error sending cancellation request:', e));
-            }
-          } else if (currentSessionId) {
-            console.log(`Sending cancellation request for session ${currentSessionId}`);
-            // Call the backend cancellation endpoint
-            fetch(`${API_BASE_URL}/api/cancel-agent/${currentSessionId}`, {
-              method: 'POST',
-            }).catch(e => console.error('Error sending cancellation request:', e));
+          // Get the session ID from our manager
+          const sessionId = sessionManager.getSessionId();
+          if (sessionId) {
+            console.log(`Cancelling session: ${sessionId}`);
+            await cancelLogStream(sessionId);
+          } else {
+            console.warn('No active session ID found for cancellation');
           }
-        } finally {
-          // Clean up resources when request is cancelled
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
+        } catch (cancelError) {
+          console.error('Error during cancellation:', cancelError);
         }
         
         // Show cancellation message instead of error
-        yield {
-          content: [{
-            type: "text" as const,
-            text: "Request cancelled."
-          }],
-        };
-        
-        // Return without throwing to avoid error state in UI
-        return
-      } else {
-        // Handle all other errors
-        console.error("Error in run:", error);
-        // Ensure EventSource is cleaned up on error
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-        throw error; // Re-throw to let the UI show error state
+        yield ResponseParser.createCancellationResponse();
+        return;
       }
+      // Handle all other errors
+      console.error("Error in run:", error);
+      throw error; // Re-throw to let the UI show error state
     }
   },
 };
 
-
-
-export function MyRuntimeProvider({
-  children,
-}: Readonly<{
-  children: ReactNode;
-}>) {
+/**
+ * MyRuntimeProvider component that provides the runtime to the assistant UI.
+ */
+export function MyRuntimeProvider({ children }: { children: ReactNode }) {
   const runtime = useLocalRuntime(MyModelAdapter);
+  const { setSessionId } = useSession();
   
-  // Clean up event source on unmount
+  // Sync our session manager with the context
   useEffect(() => {
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
+    // Override the setSessionId method to update the context as well
+    const originalSetSessionId = sessionManager.setSessionId;
+    sessionManager.setSessionId = (id: string | null) => {
+      // Call the original function to update window
+      originalSetSessionId(id);
+      // Also update the context
+      setSessionId(id);
     };
-  }, []);
- 
+    
+    // Clean up when component unmounts
+    return () => {
+      sessionManager.setSessionId(null);
+    };
+  }, [setSessionId]);
+  
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       {children}

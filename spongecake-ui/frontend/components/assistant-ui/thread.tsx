@@ -24,9 +24,8 @@ import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import React, { useState } from "react";
 import { API_BASE_URL } from "@/config";
-
-// Declare the external currentSessionId variable from MyRuntimeProvider
-declare const currentSessionId: string | null;
+import { sessionManager } from "./MyRuntimeProvider";
+import { useSession } from "./SessionContext";
 
 export const Thread: FC = () => {
   return (
@@ -170,33 +169,37 @@ const ComposerAction: FC<{ onSend: () => void }> = ({ onSend }) => {
 };
 
 const ComposerCancel: FC = () => {
-  // Custom cancel handler to directly call our backend
-  const handleCancel = () => {
+  // Use the session context as primary source and sessionManager as backup
+  const { sessionId: contextSessionId } = useSession();
+  
+  // Custom cancel handler with better error handling
+  const handleCancel = async () => {
     console.log('Manual cancel button clicked');
     
-    // First try to access the global variable from MyRuntimeProvider
-    // @ts-ignore - This is defined in MyRuntimeProvider.tsx
-    const sessionId = window.currentSessionId;
+    // Try to get session ID from context first, then fallback to sessionManager
+    const sessionId = contextSessionId || sessionManager.getSessionId();
     
     if (sessionId) {
-      console.log(`Sending manual cancellation for session: ${sessionId}`);
+      console.log(`Sending cancellation for session: ${sessionId}`);
       
-      // Call our cancellation endpoint directly
-      fetch(`${API_BASE_URL}/api/cancel-agent/${sessionId}`, {
-        method: 'POST',
-      })
-      .then(response => {
-        console.log('Cancel response status:', response.status);
-        return response.json();
-      })
-      .then(data => console.log('Cancel response:', data))
-      .catch(err => console.error('Error cancelling:', err));
+      try {
+        // Call our cancellation endpoint
+        const response = await fetch(`${API_BASE_URL}/api/cancel-agent/${sessionId}`, {
+          method: 'POST',
+        });
+        
+        if (response.ok) {
+          console.log('Cancellation successful');
+          const data = await response.json();
+          console.log('Cancellation response:', data);
+        } else {
+          console.error(`Cancellation failed with status: ${response.status}`);
+        }
+      } catch (err) {
+        console.error('Error cancelling:', err);
+      }
     } else {
-      console.error('No active session ID found, cancelling anyway');
-      // Try to cancel using a default session ID if needed
-      fetch(`${API_BASE_URL}/api/cancel-agent/current`, {
-        method: 'POST',
-      }).catch(err => console.error('Error in fallback cancellation:', err));
+      console.error('No active session ID found');
     }
   };
   
