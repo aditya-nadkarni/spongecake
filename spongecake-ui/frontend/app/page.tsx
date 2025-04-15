@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Thread } from "@/components/assistant-ui/thread";
-import { Play, LoaderCircle, Lightbulb, LaptopMinimal } from "lucide-react";
+import { Play, LoaderCircle, Lightbulb, LaptopMinimal, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MyRuntimeProvider } from "@/components/assistant-ui/MyRuntimeProvider";
 import Logo from "@/components/images/spongecake-logo-light.png";
+import InstructionsImage from "@/components/images/instructions-video.gif";
 import { API_BASE_URL, getVncUrl } from "@/config";
 
 export default function Home() {
@@ -16,6 +17,17 @@ export default function Home() {
   const [containerLoading, setContainerLoading] = useState(false);
   const [novncPort, setNovncPort] = useState<number>(6080); // Default port, will be updated
   const [host, setHost] = useState("");
+  const [showInstructionsGif, setShowInstructionsGif] = useState(true);
+
+// useEffect to check for local parameter on the URL. Used for when a new window is opened after hitting 'Run locally' 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isLocal = params.get("isLocal");
+    if (isLocal === "true") {
+      setHost("local");
+    }
+  }, []);
+
 
   const handleStartContainer = async (host: string = "") => {
     try {
@@ -42,14 +54,31 @@ export default function Home() {
         await new Promise(resolve => setTimeout(resolve, 3500));
         setContainerStarted(true);
         setVncShown(true);
-      } 
+      } else {
+        // Host is local, and we open up a window with the ?isLocal parameter set to true. This will open a chat window and show the local instructions video
+        const firstWindow = window.open(
+          "http://localhost:3000/?isLocal=true",
+          "_blank",
+          `width=${Math.floor(window.screen.width * 0.5)},height=${window.screen.height},left=0,top=0,menubar=no,toolbar=no,location=no,resizable=no`
+      );
+      if (firstWindow) {
+        firstWindow.focus();
+      } else {
+        console.warn("Window was blocked or failed to open.");
+      }
+      return
+      }
       // Wait for 2 seconds before showing the VNC viewer
       setLogs(data.logs || []);
-
-      setHost(host);
       setContainerLoading(false);
+      setHost(host);
     } catch (error) {
-      console.error("Error starting container:", error);
+        if (error instanceof TypeError && error.message === "Failed to fetch") {
+          alert("Failed to fetch. Please make sure the server is running.");
+          console.log("Failed to fetch. Please make sure the server is running.", error);
+        } else {
+          console.error("Error starting container:", error);
+        }
     }
   };
 
@@ -117,11 +146,19 @@ export default function Home() {
         {/* Local mode - this will just show a chat window which will execute agent on local machine with no container */}
         {host === 'local' && (
           <div className="flex flex-col gap-3">
-            <div className="flex text-yellow-900 flex-row gap-1 bg-yellow-100 w-fit self-center p-3 rounded-lg">
-              <Lightbulb className="w-5 mr-1"/> 
-              <strong>Note: </strong>Ensure this window is always visible as the agent runs
+            {showInstructionsGif && (
+            <div className="flex text-yellow-900 flex-col gap-3 bg-yellow-100 w-fit max-w-[600px] self-center p-3 rounded-lg">
+              <div className="flex w-[100%] flex-row justify-between gap-1">
+                <div className="flex flex-row gap-1"> 
+                  <Lightbulb className="w-5 mr-1"/> 
+                  <strong>Important: </strong>Position your windows like this on your Mac:
+                </div>
+                <div onClick={() => setShowInstructionsGif(false)} className="cursor-pointer flex r-0 self-end"><XIcon className="w-5 mr-1"/></div>
+              </div>
+              <img className="self-center w-full" src={InstructionsImage.src} alt="Instructions" />
             </div>
-                <div 
+            )}
+            <div 
                 style={{ height: "calc(100vh - 200px)" }} // subtract 100px or whatever value
                 className=" flex flex-col border items-center mt-0 w-dvh rounded p-2">
                   <Thread />
