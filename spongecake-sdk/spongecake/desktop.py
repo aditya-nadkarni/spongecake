@@ -847,7 +847,7 @@ class Desktop:
         return self.get_agent().get_page_html(query)
             
     def action(self, input_text=None, acknowledged_safety_checks=False, ignore_safety_and_input=False,
-              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, **kwargs):
+              complete_handler=None, needs_input_handler=None, needs_safety_check_handler=None, error_handler=None, tools=None, function_map=None, stop_event=None, **kwargs):
         """
         New and improved action command: Execute an action in the desktop environment. This method delegates to the agent's action method.
         
@@ -913,7 +913,8 @@ class Desktop:
                 needs_safety_check_handler=needs_safety_check_handler,
                 error_handler=error_handler,
                 tools=tools,
-                function_map=function_map
+                function_map=function_map,
+                stop_event=stop_event
             )
 
         finally:

@@ -6,6 +6,7 @@ import { Play, LoaderCircle, Lightbulb, LaptopMinimal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MyRuntimeProvider } from "@/components/assistant-ui/MyRuntimeProvider";
+import { SessionProvider } from "@/components/assistant-ui/SessionContext";
 import Logo from "@/components/images/spongecake-logo-light.png";
 import { API_BASE_URL, getVncUrl } from "@/config";
 
@@ -54,8 +55,9 @@ export default function Home() {
   };
 
   return (
-    <MyRuntimeProvider>
-      <main className="px-4 py-4 flex-col gap-3 flex items-center">
+    <SessionProvider>
+      <MyRuntimeProvider>
+        <main className="px-4 py-4 flex-col gap-3 flex items-center">
         <img src={Logo.src} alt="Spongecake Logo" width={300} />
         {!containerStarted && host == '' && (
           <div className="flex flex-row gap-2">
@@ -130,7 +132,8 @@ export default function Home() {
           )}
 
 
-      </main>
-    </MyRuntimeProvider>
+        </main>
+      </MyRuntimeProvider>
+    </SessionProvider>
   );
 }

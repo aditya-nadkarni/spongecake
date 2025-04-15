@@ -61,6 +61,7 @@ class SpongecakeServer:
         self.app = Flask(__name__)
         # Dictionary to store active log streaming sessions
         self.active_sessions = {}
+        self.active_threads = {}
         CORS(self.app)
         self.desktop = None
         self.novnc_port = None
@@ -74,8 +75,10 @@ class SpongecakeServer:
 
         self.app.route("/api/start-container", methods=["POST"])(self.api_start_container)
         self.app.route("/api/run-agent", methods=["POST"])(self.api_run_agent)
-        self.app.route("/api/health", methods=["GET"])(self.health_check)
+
         self.app.route("/api/logs/<session_id>", methods=["GET"])(self.stream_logs)
+        self.app.route("/api/cancel-agent/<session_id>", methods=["POST"])(self.cancel_agent)
+        self.app.route("/api/health", methods=["GET"])(self.health_check)
     
     def start_novnc_server(
         self,
@@ -203,7 +206,7 @@ class SpongecakeServer:
         print(f"😱 ERROR: {error_message}")
         self.result[0] = None  # Just return None on error
 
-    def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False, log_queue=None) -> Dict[str, Any]:
+    def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False, log_queue=None, stop_event=None) -> Dict[str, Any]:
         """Run the agent logic in the Spongecake Desktop.
         
         Args:
@@ -228,17 +231,24 @@ class SpongecakeServer:
         
         # Run the agent in auto or interactive mode
         try:
-            if auto_mode:
-                status, data = self.desktop.action(input_text=formatted_prompt, ignore_safety_and_input=True)
-            else:
-                status, data = self.desktop.action(
-                    input_text=formatted_prompt,
-                    complete_handler=self.complete_handler,
-                    needs_input_handler=self.needs_input_handler,
-                    needs_safety_check_handler=self.needs_safety_check_handler,
-                    acknowledged_safety_checks=safety_ack,
-                    error_handler=self.error_handler
-                )
+            # Create a wrapper for desktop.action that checks the stop_event
+            def run_with_cancellation_check():
+                # Run the agent action
+                if auto_mode:
+                    return self.desktop.action(input_text=formatted_prompt, ignore_safety_and_input=True, stop_event=stop_event)
+                else:
+                    return self.desktop.action(
+                        input_text=formatted_prompt,
+                        complete_handler=self.complete_handler,
+                        needs_input_handler=self.needs_input_handler,
+                        needs_safety_check_handler=self.needs_safety_check_handler,
+                        acknowledged_safety_checks=safety_ack,
+                        error_handler=self.error_handler,
+                        stop_event=stop_event
+                    )
+            
+            # Run the action with cancellation check
+            status, data = run_with_cancellation_check()
             
             if status == AgentStatus.ERROR:
                 log_msg = f"❌ Error in agent action: {data}"
@@ -373,18 +383,27 @@ class SpongecakeServer:
             session_id = str(uuid.uuid4())
             log_queue = queue.Queue()
             self.active_sessions[session_id] = log_queue
+
+            # Create a stop event for cancellation
+            stop_event = threading.Event()
             
             # Start agent action in a background thread
             thread = threading.Thread(
                     target=self._run_agent_in_thread,
-                    args=(messages, auto_mode, safety_ack, log_queue, session_id)
+                    args=(messages, auto_mode, safety_ack, log_queue, session_id, stop_event)
                 )
             try:
                 thread.daemon = True
                 thread.start()
+                # Store both the thread and the stop_event for cancellation
+                self.active_threads[session_id] = {
+                    'thread': thread,
+                    'stop_event': stop_event
+                }
             except Exception as e:
                 print("\n------\n PROCESS STOPPED \n------\n")
-                thread.stop()
+                # thread.stop() is not a standard method, use stop_event instead
+                stop_event.set()
             
             # Return session ID to frontend for connecting to log stream
             return jsonify({
@@ -396,7 +415,7 @@ class SpongecakeServer:
             logger.error(f"Error in api_run_agent: {e}", exc_info=True)
             return jsonify({"error": str(e)}), 500
             
-    def _run_agent_in_thread(self, messages, auto_mode, safety_ack, log_queue, session_id):
+    def _run_agent_in_thread(self, messages, auto_mode, safety_ack, log_queue, session_id, stop_event=None):
         """Run agent action in a background thread and stream logs."""
         # Set up log capture for all Spongecake SDK modules
         # This captures logs from both spongecake.desktop and spongecake.agent
@@ -428,7 +447,8 @@ class SpongecakeServer:
                 messages, 
                 auto_mode=auto_mode, 
                 safety_ack=safety_ack,
-                log_queue=log_queue
+                log_queue=log_queue,
+                stop_event=stop_event
             )
             
             # Send the final result to the log queue as a JSON string
@@ -494,6 +514,73 @@ class SpongecakeServer:
             cleanup_thread = threading.Thread(target=cleanup_session)
             cleanup_thread.daemon = True
             cleanup_thread.start()
+    
+    def cancel_agent(self, session_id):
+        """API endpoint to cancel a running agent action.
+        
+        Args:
+            session_id: The session ID of the agent action to cancel
+            
+        Returns:
+            JSON response with cancellation status
+        """
+        logger.info(f"Received cancellation request for session {session_id}")  
+        
+        # Check if the session exists
+        if session_id not in self.active_sessions:
+            return jsonify({"error": "Session not found"}), 404
+            
+        # Get the log queue for this session
+        log_queue = self.active_sessions[session_id]
+        
+        # Send cancellation message to the log stream
+        log_queue.put(json.dumps({
+            "type": "log",
+            "message": "Cancellation requested by user\n"
+        }))
+        
+        # Trigger the stop event to halt the thread execution
+        if session_id in self.active_threads:
+            logger.info(f"Setting stop event for session {session_id}")
+            thread_info = self.active_threads[session_id]
+            if 'stop_event' in thread_info:
+                thread_info['stop_event'].set()
+                
+                # Wait a short time for the thread to respond to the stop event
+                if 'thread' in thread_info:
+                    thread = thread_info['thread']
+                    thread.join(timeout=0.5)  # Wait up to 0.5 seconds for the thread to finish
+                    
+                    # Log whether the thread actually stopped
+                    if thread.is_alive():
+                        logger.warning(f"Thread for session {session_id} is still running after stop event")
+                    else:
+                        logger.info(f"Thread for session {session_id} successfully stopped")
+        
+        # Send a result indicating cancellation
+        log_queue.put(json.dumps({
+            "type": "result",
+            "data": {"agent_response": "Agent action cancelled by user"}
+        }))
+        
+        # Signal end of stream
+        log_queue.put(json.dumps({
+            "type": "complete", 
+            "message": "Task cancelled"
+        }))
+        
+        # Clean up the session
+        if session_id in self.active_sessions:
+            del self.active_sessions[session_id]
+        if session_id in self.active_threads:
+            del self.active_threads[session_id]
+        
+        logger.info(f"Agent action cancelled for session {session_id}")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Agent action cancelled"
+        })
     
     def health_check(self):
         """API endpoint to check the health of the server.

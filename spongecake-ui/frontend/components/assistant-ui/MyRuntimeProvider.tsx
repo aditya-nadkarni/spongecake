@@ -8,8 +8,14 @@ import {
 } from "@assistant-ui/react";
 import { API_BASE_URL } from "@/config";
 
-// Global variable to track the EventSource connection for log streaming
+// Global variables to track the EventSource connection and current session ID
 let eventSource: EventSource | null = null;
+let currentSessionId: string | null = null;
+
+// Make currentSessionId accessible globally for the ComposerCancel component
+if (typeof window !== 'undefined') {
+  (window as any).currentSessionId = null;
+}
 
 /**
  * Creates a ReadableStream from an EventSource connection to the backend log stream.
@@ -78,6 +84,14 @@ function createEventSourceStream(url: string): ReadableStream<any> {
         eventSource.close();
         eventSource = null;
       }
+      
+      // Clear the session ID
+      currentSessionId = null;
+      
+      // Also clear from window
+      if (typeof window !== 'undefined') {
+        (window as any).currentSessionId = null;
+      }
     }
   });
 }
@@ -130,8 +144,23 @@ const MyModelAdapter: ChatModelAdapter = {
           }],
         };
         
+
+        // Use the session ID returned from the backend
+        const sessionId = data.session_id;
+        const logStreamUrl = `${API_BASE_URL}/api/logs/${sessionId}`;
+        
+        // Store session ID in global variable for cancellation access
+        currentSessionId = sessionId;
+        
+        // Make it accessible to window for the ComposerCancel component
+        if (typeof window !== 'undefined') {
+          (window as any).currentSessionId = sessionId;
+        }
+        
+        console.log(`Creating event source for session ${sessionId} at ${logStreamUrl}`);
+        
         // Connect to the log stream endpoint to see what the agent is doing (using SSE)
-        const stream = createEventSourceStream(`${API_BASE_URL}/api/logs/${data.session_id}`);
+        const stream = createEventSourceStream(logStreamUrl);
         const reader = stream.getReader();
         
         // State variables to track streaming progress
@@ -276,11 +305,51 @@ const MyModelAdapter: ChatModelAdapter = {
       if (error?.name === "AbortError") {
         console.log('User cancelled send')
         // Clean up resources when request is cancelled
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
+        // if (eventSource) {
+        //   eventSource.close();
+        //   eventSource = null;
+        // }
+
+        console.log('User cancelled request');
+        
+        try {
+          // Extract session ID from the EventSource URL if available
+          if (eventSource?.url) {
+            const urlParts = eventSource.url.split('/');
+            const sessionId = urlParts[urlParts.length - 1];
+            
+            if (sessionId) {
+              console.log(`Sending cancellation request for session ${sessionId}`);
+              // Call the backend cancellation endpoint
+              fetch(`${API_BASE_URL}/api/cancel-agent/${sessionId}`, {
+                method: 'POST',
+              }).catch(e => console.error('Error sending cancellation request:', e));
+            }
+          } else if (currentSessionId) {
+            console.log(`Sending cancellation request for session ${currentSessionId}`);
+            // Call the backend cancellation endpoint
+            fetch(`${API_BASE_URL}/api/cancel-agent/${currentSessionId}`, {
+              method: 'POST',
+            }).catch(e => console.error('Error sending cancellation request:', e));
+          }
+        } finally {
+          // Clean up resources when request is cancelled
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
         }
-        throw error // Re-throw to let the UI handle cancellation
+        
+        // Show cancellation message instead of error
+        yield {
+          content: [{
+            type: "text" as const,
+            text: "Request cancelled."
+          }],
+        };
+        
+        // Return without throwing to avoid error state in UI
+        return
       } else {
         // Handle all other errors
         console.error("Error in run:", error);

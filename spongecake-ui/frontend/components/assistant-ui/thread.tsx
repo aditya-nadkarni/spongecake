@@ -22,6 +22,10 @@ import { Button } from "@/components/ui/button";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import React, { useState } from "react";
+import { API_BASE_URL } from "@/config";
+
+// Declare the external currentSessionId variable from MyRuntimeProvider
+declare const currentSessionId: string | null;
 
 export const Thread: FC = () => {
   return (
@@ -124,8 +128,8 @@ const Composer: FC = () => {
         className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
       />
       <ComposerAction onSend={handleSubmit} />
-      {/* Uncomment this to add a cancel button. You will need to implement a way to cancel the agent from running on the backend */}
-      {/* <ComposerCancel onCancel={handleSubmit} /> */} 
+      {/* Cancel button for aborting running agent requests */}
+      <ComposerCancel /> 
     </ComposerPrimitive.Root>
   );
 };
@@ -147,15 +151,45 @@ const ComposerAction: FC<{ onSend: () => void }> = ({ onSend }) => {
   );
 };
 
-const ComposerCancel: FC<{ onCancel: () => void }> = ({ onCancel }) => {
+const ComposerCancel: FC = () => {
+  // Custom cancel handler to directly call our backend
+  const handleCancel = () => {
+    console.log('Manual cancel button clicked');
+    
+    // First try to access the global variable from MyRuntimeProvider
+    // @ts-ignore - This is defined in MyRuntimeProvider.tsx
+    const sessionId = window.currentSessionId;
+    
+    if (sessionId) {
+      console.log(`Sending manual cancellation for session: ${sessionId}`);
+      
+      // Call our cancellation endpoint directly
+      fetch(`${API_BASE_URL}/api/cancel-agent/${sessionId}`, {
+        method: 'POST',
+      })
+      .then(response => {
+        console.log('Cancel response status:', response.status);
+        return response.json();
+      })
+      .then(data => console.log('Cancel response:', data))
+      .catch(err => console.error('Error cancelling:', err));
+    } else {
+      console.error('No active session ID found, cancelling anyway');
+      // Try to cancel using a default session ID if needed
+      fetch(`${API_BASE_URL}/api/cancel-agent/current`, {
+        method: 'POST',
+      }).catch(err => console.error('Error in fallback cancellation:', err));
+    }
+  };
+  
   return (
-    <ThreadPrimitive.If running={true}>
+    <ThreadPrimitive.If running>
       <ComposerPrimitive.Cancel asChild>
         <TooltipIconButton
           tooltip="Cancel"
           variant="default"
           className="my-2.5 size-8 p-2 transition-opacity ease-in"
-          onClick={onCancel}
+          onClick={handleCancel} /* Add the manual cancel handler */
         >
           <CircleStopIcon />
         </TooltipIconButton>
