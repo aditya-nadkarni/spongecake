@@ -27,6 +27,34 @@ load_dotenv()
 # Setup logging
 logger = setup_logging()
 
+# Custom logging handler that captures logs and sends them to a queue for streaming
+class QueueHandler(logging.Handler):
+    def __init__(self, log_queue):
+        super().__init__()
+        self.log_queue = log_queue
+        # Define the format for log messages (module - level - message)
+        self.formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+
+    def emit(self, record):
+        # Format the log message according to our formatter
+        formatted_msg = self.formatter.format(record)
+        
+        # Only capture logs from the Spongecake SDK modules (filtering)
+        if record.name.startswith('spongecake'):
+            # Print to console for debugging/monitoring
+            print(f"CAPTURED LOG: {formatted_msg}")
+            
+            # Convert log to a standardized JSON format with type and message
+            # This ensures all messages in the queue have a consistent structure
+            log_data = {
+                "type": "log",  # Identifies this as a log message (vs. result or complete)
+                "message": formatted_msg + "\n"  # Add newline for better display
+            }
+            # Add the JSON-formatted log to the queue for streaming
+            self.log_queue.put(json.dumps(log_data))
+
+
+
 
 # Context manager for launching a custom cursor when agent is executing in run_agent_action(). Only works for MacOS. 
 @contextmanager
