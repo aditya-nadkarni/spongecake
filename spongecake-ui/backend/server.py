@@ -26,7 +26,6 @@ load_dotenv()
 # Setup logging
 logger = setup_logging()
 
-# Custom log handler to capture logs for streaming
 # Custom logging handler that captures logs and sends them to a queue for streaming
 class QueueHandler(logging.Handler):
     def __init__(self, log_queue):
@@ -78,8 +77,6 @@ class SpongecakeServer:
         self.app.route("/api/health", methods=["GET"])(self.health_check)
         self.app.route("/api/logs/<session_id>", methods=["GET"])(self.stream_logs)
     
-
-    
     def start_novnc_server(
         self,
         novnc_path: str = Config.NOVNC_PATH,
@@ -87,7 +84,7 @@ class SpongecakeServer:
         vnc_host: str = Config.VNC_HOST,
         vnc_port: Union[str, int] = "6080"
     ) -> Tuple[subprocess.Popen, int]:
-        """Launch websockify with noVNC as a background process.
+        """Launch websockify with noVNC as a background process. The noVNC server is used so that the client can connect to it and view the desktop running in a Docker container
         
         Args:
             novnc_path: Path to the noVNC installation
@@ -166,6 +163,11 @@ class SpongecakeServer:
     
     # -------------------------
     # Handlers for desktop agent statuses
+    # There are four handlers so that developers can customize how to handle the different statuses:
+    # complete_handler: Checks if the agent is complete and returns the result
+    # needs_input_handler: Returns user input to the front-end (same as above)
+    # needs_safety_check_handler: Checks if the agent needs a safety check, and returns an object with a pendingSafetyCheck flag set to true
+    # error_handler: Handles any errors in agent execution
     # -------------------------
     result = [None]
 
@@ -262,7 +264,7 @@ class SpongecakeServer:
                 "logs": logs,
                 "agent_response": json.dumps({
                     'pendingSafetyCheck': True,
-                    'messages': ["We've detected instructions that may cause your application to perform malicious or unauthorized actions. Please acknowledge this warning if you'd like to proceed.\n\n > **Type 'ack' to acknowledge and proceed.**"]
+                    'messages': ["We've spotted something that might cause the agent to behave unexpectedly! Please acknowledge this to proceed.\n\n > *Type 'ack' to acknowledge and proceed.*"]
                 })
             }
         else:
