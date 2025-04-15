@@ -8,29 +8,40 @@ import {
 } from "@assistant-ui/react";
 import { API_BASE_URL } from "@/config";
 
-// Variable to manage the event source
+// Global variable to track the EventSource connection for log streaming
 let eventSource: EventSource | null = null;
 
-// Helper function to create a readable stream from an EventSource
+/**
+ * Creates a ReadableStream from an EventSource connection to the backend log stream.
+ * This allows us to process SSE events as a stream that can be consumed by the AsyncGenerator.
+ * 
+ * @param url - The URL to connect to for server-sent events
+ * @returns A ReadableStream that emits parsed JSON objects from the event source
+ */
 function createEventSourceStream(url: string): ReadableStream<any> {
   return new ReadableStream({
     start(controller) {
-      // Close any existing event source
+      // Close any existing event source to prevent multiple connections
       if (eventSource) {
         eventSource.close();
       }
       
-      // Create a new EventSource
+      // Create a new EventSource connection to the server
       eventSource = new EventSource(url);
       
-      // Handle incoming messages
+      // Set up event handler for incoming messages
       if (eventSource) {
         eventSource.onmessage = (event) => {
         try {
+          console.log(event.data) // Debug: log raw event data
+          
+          // Parse the JSON data from the event
           const data = JSON.parse(event.data);
+          
+          // Add the parsed data to the stream
           controller.enqueue(data);
           
-          // If this is the completion message, close the stream
+          // If this is the completion message, close the stream and clean up
           if (data.type === 'complete') {
             controller.close();
             if (eventSource) {
@@ -39,17 +50,20 @@ function createEventSourceStream(url: string): ReadableStream<any> {
             }
           }
         } catch (error) {
+          // Handle JSON parsing errors
           console.error('Error parsing event data:', error);
           controller.error(error);
         }
       };
       }
       
-      // Handle errors
+      // Set up error handler for the EventSource
       if (eventSource) {
         eventSource.onerror = (error) => {
         console.error('EventSource error:', error);
         controller.error(error);
+        
+        // Clean up on error
         if (eventSource) {
           eventSource.close();
           eventSource = null;
@@ -57,8 +71,9 @@ function createEventSourceStream(url: string): ReadableStream<any> {
       };
       }
     },
+    // Clean up function called when the stream is cancelled
     cancel() {
-      // Clean up the EventSource if the stream is cancelled
+      // Ensure the EventSource is properly closed
       if (eventSource) {
         eventSource.close();
         eventSource = null;
@@ -67,31 +82,47 @@ function createEventSourceStream(url: string): ReadableStream<any> {
   });
 }
 
+/**
+ * The ChatModelAdapter implementation for the Spongecake SDK.
+ * This adapter handles communication with the backend API and processes streaming logs.
+ */
 const MyModelAdapter: ChatModelAdapter = {
+  /**
+   * Main run function that processes user messages and streams responses.
+   * Implemented as an AsyncGenerator to support streaming responses.
+   */
   async *run({ messages, abortSignal }) {
     try {
+      // Extract the last message from the user
       const lastMessage = (messages[messages.length - 1]?.content[0] as { text?: string })?.text || "";
-      // If last message is "ack" or "acknowledged", set safety_acknowledged to true and send to backend
-      const isAck = ["ack", "acknowledged"].includes(
+      
+      // Check if this is an acknowledgment for a safety check
+      // If the user types "ack" or "acknowledged", we'll pass that to the backend
+      const isAck = ["ack", "acknowledged", "y", "yes"].includes(
         lastMessage?.trim().toLowerCase() || ""
       );
       
+      // Send initial call to start an agent action
       const result = await fetch(`${API_BASE_URL}/api/run-agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: lastMessage, safety_acknowledged: isAck }),
-        signal: abortSignal,
+        signal: abortSignal, // Support for cancellation
       });
       
+      // Handle HTTP errors
       if (!result.ok) {
         throw new Error(`Server error: ${result.status}`);
       }
       
+      // Parse the initial response
       const data = await result.json();
       
-      // If we have a session ID, connect to the log stream
+      /*
+       * Stream logs from the backend to the frontend to track what the agent is doing
+       */
       if (data.session_id) {
-        // Initial response
+        // Show initial "Processing" message while waiting for logs
         yield {
           content: [{
             type: "text" as const,
@@ -99,32 +130,34 @@ const MyModelAdapter: ChatModelAdapter = {
           }],
         };
         
-        // Create a stream from the EventSource
+        // Connect to the log stream endpoint to see what the agent is doing (using SSE)
         const stream = createEventSourceStream(`${API_BASE_URL}/api/logs/${data.session_id}`);
         const reader = stream.getReader();
         
-        // Collect logs
-        const actionLogs: string[] = [];
-        let finalResponse: string | null = null;
-        let shouldStop = false;
+        // State variables to track streaming progress
+        const actionLogs: string[] = []; // Store filtered action logs
+        let finalResponse: string | null = null; // Store the final agent response
+        let shouldStop = false; // Flag to control the streaming loop
 
         try {
+          // Main streaming loop - continues until shouldStop is true
           while (!shouldStop) {
             const { done, value } = await reader.read();
             
+            // Exit if the stream is done
             if (done) break;
             
-            // Process the streamed data based on type
+            // Process different message types from the backend
+            // Process an agent action log
             if (value.type === 'log') {
               const logMessage = value.message;
               
-              // Extract action logs from the format "spongecake.xxx - INFO - Action: xxx"
+              // Filter logs to only show logs that reference an agent action
               if (logMessage.includes(" - Action: ")) {
-                // Extract the action part from the log message
                 const actionPart = logMessage.split(" - Action: ")[1];
                 actionLogs.push("Action: " + actionPart);
                 
-                // Yield updated content with filtered action logs
+                // Update the chat with the action taken
                 yield {
                   content: [{
                     type: "text" as const,
@@ -132,62 +165,43 @@ const MyModelAdapter: ChatModelAdapter = {
                   }],
                 };
               }
-            } else if (value.type === 'result') {
-              // Process the final response
+            }
+            // Process a result message - either when the agent needs further input, safety check acknowledgment, or a task complete response
+            else if (value.type === 'result') {
               if (value.data) {
                 try {
-                  // Check for pendingSafetyCheck
-                  if (value.data.pendingSafetyCheck) {
-                    // Handle safety check response
-                    if (value.data.agent_response && typeof value.data.agent_response === 'object' && value.data.agent_response.messages) {
-                      finalResponse = value.data.agent_response.messages.join("\n") + 
-                        '\n\nType "ack" to acknowledge and proceed.';
-                    } else if (typeof value.data.agent_response === 'string' && value.data.agent_response.includes('pendingSafetyCheck')) {
-                      try {
-                        const safetyObj = JSON.parse(value.data.agent_response);
-                        if (safetyObj.messages) {
-                          finalResponse = safetyObj.messages.join("\n") + 
-                            '\n\nType "ack" to acknowledge and proceed.';
-                        } else {
-                          finalResponse = 'Safety check required. Type "ack" to acknowledge and proceed.';
-                        }
-                      } catch (e) {
-                        finalResponse = 'Safety check required. Type "ack" to acknowledge and proceed.';
-                      }
-                    } else {
-                      finalResponse = 'Safety check required. Type "ack" to acknowledge and proceed.';
-                    }
-                  } 
-                  // Regular agent response
-                  else if (value.data.agent_response) {
-                    if (typeof value.data.agent_response === 'object' && value.data.agent_response.messages) {
-                      // Object with messages array
-                      finalResponse = value.data.agent_response.messages.join("\n");
-                    } else if (typeof value.data.agent_response === 'string') {
-                      // Try to parse as JSON first
-                      try {
-                        const responseObj = JSON.parse(value.data.agent_response);
-                        if (responseObj.messages && Array.isArray(responseObj.messages)) {
-                          finalResponse = responseObj.messages.join("\n");
-                        } else {
-                          finalResponse = value.data.agent_response;
-                        }
-                      } catch (e) {
-                        // Not JSON, use as is
+                  // Agent response can either be an object or a single string
+                  if (typeof value.data.agent_response === 'object' && value.data.agent_response.messages) {
+                    finalResponse = value.data.agent_response.messages.join("\n");
+                  } else if (typeof value.data.agent_response === 'string') {
+                    try {
+                      const responseObj = JSON.parse(value.data.agent_response);
+                      if (responseObj.messages && Array.isArray(responseObj.messages)) {
+                        // Extract and join messages from parsed JSON
+                        finalResponse = responseObj.messages.join("\n");
+                      } else {
+                        // Use the raw string if no messages array
                         finalResponse = value.data.agent_response;
                       }
-                    } else {
-                      finalResponse = String(value.data.agent_response);
+                    } catch (e) {
+                      // Not valid JSON, use the string as is
+                      finalResponse = value.data.agent_response;
                     }
+                  } else {
+                    // Handle non-string, non-object responses
+                    finalResponse = String(value.data.agent_response);
                   }
                 } catch (e) {
+                  // Log and handle any errors in processing the result
                   console.error("Error processing result:", e);
                   finalResponse = "Error processing response";
                 }
                 
+                // Set flag to stop the streaming loop
                 shouldStop = true;
                 
-                // Yield the final response, replacing previous content
+                // Yield the final response, which replaces all previous content
+                // This is the message that will remain in the chat after processing
                 yield {
                   content: [{
                     type: "text" as const,
@@ -198,33 +212,37 @@ const MyModelAdapter: ChatModelAdapter = {
             }
           }
         } finally {
+          // Release the reader lock to prevent memory leaks
           reader.releaseLock();
         }
       }
 
-      // Handle safety checks and direct responses when not streaming logs
+      // Handle direct responses (non-streaming mode)
+      // This path is taken when the backend doesn't provide a session_id for streaming
       if (!data.session_id) {
+        // Validate that we have a response
         if (!data.agent_response) {
           throw new Error("Expected agent_response to be provided");
         }
 
+        // Handle safety check responses
         if (data.pendingSafetyCheck || (data.agent_response && data.agent_response.includes("pendingSafetyCheck"))) {
-          // If safety check, tell the user how to acknowledge the safety check and proceed
           try {
             let messages: string[] = [];
             
-            // Handle different safety check formats
+            // Extract messages from different safety check formats
             if (data.pendingSafetyCheck && data.agent_response && data.agent_response.messages) {
-              // Direct object with messages array
+              // Format 1: Direct object with messages array
               messages = data.agent_response.messages;
             } else if (data.agent_response && typeof data.agent_response === 'string') {
-              // JSON string
+              // Format 2: JSON string that needs parsing
               const safetyCheckObject = JSON.parse(data.agent_response);
               if (safetyCheckObject.messages) {
                 messages = safetyCheckObject.messages;
               }
             }
             
+            // Display safety check message with instructions
             yield {
               content: [
                 {
@@ -236,7 +254,7 @@ const MyModelAdapter: ChatModelAdapter = {
               ],
             };
           } catch (e) {
-            // Fallback if parsing fails
+            // Fallback message if parsing fails
             yield {
               content: [
                 {
@@ -247,28 +265,31 @@ const MyModelAdapter: ChatModelAdapter = {
             };
           }
         } else {
+          // Regular direct response (non-safety check)
           yield {
             content: [{ type: "text" as const, text: (data.agent_response || "") + "\n" }],
           };
         }
       }
     } catch (error: any) {
+      // Handle user cancellation (abort) separately from other errors
       if (error?.name === "AbortError") {
         console.log('User cancelled send')
-        // Clean up event source if it exists
+        // Clean up resources when request is cancelled
         if (eventSource) {
           eventSource.close();
           eventSource = null;
         }
-        throw error
+        throw error // Re-throw to let the UI handle cancellation
       } else {
+        // Handle all other errors
         console.error("Error in run:", error);
-        // Clean up event source if it exists
+        // Ensure EventSource is cleaned up on error
         if (eventSource) {
           eventSource.close();
           eventSource = null;
         }
-        throw error;
+        throw error; // Re-throw to let the UI show error state
       }
     }
   },
