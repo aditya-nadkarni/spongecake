@@ -12,6 +12,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  ExternalLink,
   PencilIcon,
   RefreshCwIcon,
   SendHorizontalIcon,
@@ -82,6 +83,19 @@ const ThreadWelcome: FC = () => {
   );
 };
 
+const handleWebpageOpen = (url: string) => {
+  const browserWindow = window.open(
+    url,
+    "_blank",
+    `width=${Math.floor(window.screen.width * 0.5)},height=${window.screen.height},left=${Math.floor(window.screen.width * 0.5)}`
+  );
+  if (browserWindow) {
+    browserWindow.focus();
+  } else {
+    console.warn("Window was blocked or failed to open.");
+  }
+}
+
 const ThreadWelcomeSuggestions: FC = () => {
   return (
     <div className="mt-3 flex w-full items-stretch justify-center gap-4">
@@ -90,9 +104,11 @@ const ThreadWelcomeSuggestions: FC = () => {
         prompt="Book me a reservation on OpenTable.com"
         method="replace"
         autoSend
+        onClick={() => handleWebpageOpen("https://www.opentable.com/")}
       >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-        Book me a reservation on OpenTable.com
+        <span className="flex flex-col items-center line-clamp-2 text-ellipsis text-sm font-semibold">
+          Book a dinner reservation 
+          <span className="text-xs text-muted-foreground flex flex-row items-center gap-1">Opens OpenTable.com <ExternalLink className="w-3"/></span>
         </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
@@ -100,9 +116,11 @@ const ThreadWelcomeSuggestions: FC = () => {
         prompt="Find me flights from SFO to Tokyo on flights.google.com"
         method="replace"
         autoSend
+        onClick={() => handleWebpageOpen("https://www.google.com/travel/flights")}
       >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          Find me flights from SFO to Tokyo on flights.google.com
+        <span className="flex flex-col items-center line-clamp-2 text-ellipsis text-sm font-semibold">
+          Find SFO to Tokyo flights
+          <span className="text-xs text-muted-foreground flex flex-row items-center gap-1">Opens flights.google.com <ExternalLink className="w-3"/></span>
         </span>
       </ThreadPrimitive.Suggestion>
     </div>
