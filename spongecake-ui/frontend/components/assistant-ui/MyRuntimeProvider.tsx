@@ -22,6 +22,11 @@ type SessionManager = {
   getSessionId: () => string | null;
 };
 
+/**
+ * The SessionManager keeps track of the thread / conversation and sends it to the backend API.
+ * 
+ * This is helpful when cancelling threads or receiving logs for a given thread/conversation
+ */
 export const sessionManager: SessionManager = {
   setSessionId: (id: string | null) => {
     console.log(`Global session manager: Setting ID to ${id}`);
@@ -123,7 +128,7 @@ const MyModelAdapter: ChatModelAdapter = {
         reader.releaseLock();
       }
     } catch (error: any) {
-      // Handle user cancellation (abort) separately from other errors
+      // Handle user cancellation (when the user hits the stop button in the assistant) separately from other errors
       if (error?.name === "AbortError") {
         console.log('User cancelled request via AbortError', error);
         

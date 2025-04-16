@@ -119,24 +119,3 @@ export async function cancelLogStream(sessionId: string): Promise<void> {
     console.error('Error sending cancellation request:', error);
   }
 }
-
-/**
- * Gets the current active event source URL, which contains the session ID
- * 
- * @returns The current session ID or null if no active session
- */
-export function getCurrentSessionId(): string | null {
-  if (!activeEventSource?.url) return null;
-  
-  const urlParts = activeEventSource.url.split('/');
-  return urlParts[urlParts.length - 1];
-}
-
-/**
- * Checks if there is an active log stream
- * 
- * @returns True if there is an active event source
- */
-export function hasActiveStream(): boolean {
-  return activeEventSource !== null;
-}

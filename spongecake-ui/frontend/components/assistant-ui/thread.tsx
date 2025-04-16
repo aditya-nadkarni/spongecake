@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/config";
 import { sessionManager } from "./MyRuntimeProvider";
 import { useSession } from "./SessionContext";
@@ -82,20 +82,33 @@ const ThreadWelcome: FC = () => {
   );
 };
 
+const ThreadWelcomeSuggestions: FC = () => {
+
+  // The host state variable is intended to be used to conditionally decide what starters are shown.
+  // If running locally, then the starters should open new windows. Otherwise (e.g., running in a Docker container), nothing should happen other than sending the prompt to the backend
+  const [host, setHost] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isLocal = params.get("isLocal");
+    if (isLocal === "true") {
+      setHost("local");
+    }
+  }, []);
+
 const handleWebpageOpen = (url: string) => {
-  const browserWindow = window.open(
-    url,
-    "_blank",
-    `width=${Math.floor(window.screen.width * 0.5)},height=${window.screen.height},left=${Math.floor(window.screen.width * 0.5)}`
-  );
-  if (browserWindow) {
-    browserWindow.focus();
-  } else {
-    console.warn("Window was blocked or failed to open.");
+  if (host === "local") {
+    const browserWindow = window.open(
+      url,
+      "_blank",
+      `width=${Math.floor(window.screen.width * 0.5)},height=${window.screen.height},left=${Math.floor(window.screen.width * 0.5)}`
+    );
+    if (browserWindow) {
+      browserWindow.focus();
+    } else {
+      console.warn("Window was blocked or failed to open.");
+    }
   }
 }
-
-const ThreadWelcomeSuggestions: FC = () => {
   return (
     <div className="mt-3 flex w-full items-stretch justify-center gap-4">
       <ThreadPrimitive.Suggestion
@@ -107,7 +120,7 @@ const ThreadWelcomeSuggestions: FC = () => {
       >
         <span className="flex flex-col items-center line-clamp-2 text-ellipsis text-sm font-semibold">
           Book a dinner reservation 
-          <span className="text-xs text-muted-foreground flex flex-row items-center gap-1">Opens OpenTable.com <ExternalLink className="w-3"/></span>
+          {host === "local" && <span className="text-xs text-muted-foreground flex flex-row items-center gap-1">Opens OpenTable.com <ExternalLink className="w-3"/></span>}
         </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
@@ -119,7 +132,7 @@ const ThreadWelcomeSuggestions: FC = () => {
       >
         <span className="flex flex-col items-center line-clamp-2 text-ellipsis text-sm font-semibold">
           Find SFO to Tokyo flights
-          <span className="text-xs text-muted-foreground flex flex-row items-center gap-1">Opens flights.google.com <ExternalLink className="w-3"/></span>
+          {host === "local" && <span className="text-xs text-muted-foreground flex flex-row items-center gap-1">Opens flights.google.com <ExternalLink className="w-3"/></span>}
         </span>
       </ThreadPrimitive.Suggestion>
     </div>

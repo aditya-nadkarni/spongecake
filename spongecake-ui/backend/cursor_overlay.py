@@ -83,7 +83,7 @@ class CursorOverlayView(NSView):
 
         # Set up animation variables:
         # baseText is the message without dots.
-        self.baseText = "Thinking"
+        self.baseText = ""
         # dotIndex cycles from 0 to 2 (which will yield 1 to 3 dots).
         self.dotIndex = 0
         # lastUpdate is the timestamp of the last animation update.
