@@ -214,14 +214,20 @@ if [ "$key_needs_setup" = true ]; then
             if [ -s ".env" ] && [ "$(tail -c 1 ".env" | wc -l)" -eq 0 ]; then
                 # File doesn't end with newline, add the key with a leading newline
                 echo -e "\nOPENAI_API_KEY=\"$openai_key\"" >> ".env"
+                echo -e "# Set to false to disable anonymous analytics" >> ".env"
+                echo "SPONGECAKE_TELEMETRY=true" >> ".env"
             else
                 # File already ends with newline, just append the key
                 echo "OPENAI_API_KEY=\"$openai_key\"" >> ".env"
+                echo "# Set to false to disable anonymous analytics" >> ".env"
+                echo "SPONGECAKE_TELEMETRY=true" >> ".env"
             fi
         else
             # Create new .env file
             echo -e "${BLUE}${BOLD}Creating new .env file in root directory...${RESET}"
             echo "OPENAI_API_KEY=\"$openai_key\"" > ".env"
+            echo "# Set to false to disable anonymous analytics" >> ".env"
+            echo "SPONGECAKE_TELEMETRY=true" >> ".env"
         fi
         print_success "OpenAI API key has been set up in .env"
         
