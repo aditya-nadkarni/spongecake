@@ -123,6 +123,9 @@ See [full documentation](https://docs.spongecake.ai/quickstart) for more details
   </p>
 </div>
 
+# Telemetry
+
+By default, spongecake will send anonymous usage data to help us improve the product. No identifying information is collected. You can disable this by setting the `SPONGECAKE_DISABLE_TELEMETRY` environment variable to `true`, or `SPONGECAKE_TELEMETRY` to `false`.
 
 # Appendix
 
