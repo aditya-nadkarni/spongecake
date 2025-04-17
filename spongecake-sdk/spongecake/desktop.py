@@ -352,8 +352,6 @@ class Desktop:
         container = self.docker_client.containers.get(self.container_name)
         # Use /bin/sh -c to execute shell commands
         result = container.exec_run(["/bin/sh", "-c", command], stdout=True, stderr=True)
-        if result.output:
-            logger.debug(f"Command Output: {result.output.decode()}")
 
         return {
             "result": result.output.decode() if result.output else "",

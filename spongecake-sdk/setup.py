@@ -15,8 +15,10 @@ setup(
         "openai>=1.66.3",
         "python-dotenv",  # If you're using dotenv, for example
         "requests",
+        "httpx>=0.27.0",  # For async HTTP requests
         "marionette-driver>=3.0.0",  # For Firefox browser automation
         "pyautogui",  # For automating actions locally on MacOS
+        "posthog>=3.0.0",  # For telemetry service
         # etc.
     ],
     classifiers=[

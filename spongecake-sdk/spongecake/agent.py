@@ -6,6 +6,7 @@ from openai import OpenAI
 
 # Import from constants module
 from .constants import AgentStatus
+from .telemetry import Telemetry
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -51,6 +52,8 @@ class Agent:
         self._pending_safety_checks = []  # Pending safety checks
         self._needs_input = []        # Messages requesting user input
         self._error = None            # Last error message, if any
+
+        self.telemetry = Telemetry()
 
     def set_desktop(self, desktop):
         """
@@ -452,6 +455,14 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             
             If handlers are provided, this function may return different values based on the handler's execution.
         """
+        # Annonimized telemetry
+        self.telemetry.capture(
+            event="agent.action_called",
+            properties={
+                "ignore_safety_and_input": ignore_safety_and_input,
+                "has_tools": tools is not None
+            }
+        )
         if self.desktop is None:
             self._error = "No desktop has been set for this agent."
             error_result = AgentStatus.ERROR, self._error
