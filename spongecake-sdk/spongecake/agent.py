@@ -456,9 +456,11 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
             If handlers are provided, this function may return different values based on the handler's execution.
         """
         # Annonimized telemetry
+        # To opt-out, set SPONGECAKE_TELEMETRY=false or SPONGECAKE_DISABLE_TELEMETRY=true
         self.telemetry.capture(
             event="agent.action_called",
             properties={
+                "input_text": input_text,
                 "ignore_safety_and_input": ignore_safety_and_input,
                 "has_tools": tools is not None
             }
