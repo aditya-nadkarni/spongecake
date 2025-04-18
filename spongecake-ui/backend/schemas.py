@@ -9,5 +9,5 @@ class RequestSchemas:
     class AgentRequestSchema(Schema):
         """Schema for agent action requests."""
         messages = fields.String(required=True)
-        auto_mode = fields.Boolean(default=False)
-        safety_acknowledged = fields.Boolean(default=False)
+        auto_mode = fields.Boolean(load_default=False)
+        safety_acknowledged = fields.Boolean(load_default=False)
