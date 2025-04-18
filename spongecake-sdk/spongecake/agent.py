@@ -516,6 +516,15 @@ Respond with only a single digit: 1 (yes, asking for input) or 0 (no, providing 
                                      needs_safety_check_handler, error_handler, tools=None, function_map=None):
         """Process a result with the appropriate handler if provided."""
         # If handlers are provided, use them to handle the different statuses
+        # Annonimized telemetry
+        # To opt-out, set SPONGECAKE_TELEMETRY=false or SPONGECAKE_DISABLE_TELEMETRY=true
+        self.telemetry.capture(
+            event="agent.action_completed",
+            properties={
+                "status": status.name,
+                "data": data
+            }
+        )
         if status == AgentStatus.COMPLETE and complete_handler:
             complete_handler(data)
             return status, data
