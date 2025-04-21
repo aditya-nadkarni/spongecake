@@ -71,7 +71,7 @@ class Desktop:
       unavailable between the initial check and the actual container startup
     """
 
-    def __init__(self, name: str = "newdesktop", docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, websocket_port: int = 6080, host: str = None, openai_api_key: str = None, create_agent: bool = True, trace_config: Optional[TraceConfig] = None):
+    def __init__(self, name: str = "newdesktop", isLocal: bool = False, docker_image: str = "spongebox/spongecake:latest", vnc_port: int = 5900, api_port: int = None, marionette_port: int = 3838, socat_port: int = 2828, websocket_port: int = 6080, host: str = None, openai_api_key: str = None, create_agent: bool = True, trace_config: Optional[TraceConfig] = None):
         """
         Initialize a new Desktop instance.
         
@@ -100,10 +100,11 @@ class Desktop:
         self.host = host
         self.container_started = False
         self.tracer = Tracer(trace_config)
+        self.isLocal = isLocal
 
         # Initialize environment
         self.scale_factor = 1 # Default scale factor
-        if self.host == 'local':
+        if self.isLocal == True:
             if platform.system() == "Darwin":
                 self.environment = "mac"
                 # Import pyautogui only when needed in Mac environment

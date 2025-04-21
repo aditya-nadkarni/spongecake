@@ -40,7 +40,7 @@ export default function Home() {
       }
       const resp = await fetch(`${API_BASE_URL}/api/start-container`, {
         method: "POST",
-        body: JSON.stringify({ host: isLocal ? 'local' : '' }),
+        body: JSON.stringify({ isLocal: isLocal }),
         headers: {
           "Content-Type": "application/json",
         },

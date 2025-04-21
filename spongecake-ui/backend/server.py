@@ -148,11 +148,13 @@ class SpongecakeServer:
             logger.error(f"Failed to start noVNC server: {e}")
             raise
     
-    def start_container_if_needed(self, host="", logs: Optional[List[str]] = None) -> Tuple[List[str], int]:
+    def start_container_if_needed(self, host="", logs: Optional[List[str]] = None, isLocal: bool = False) -> Tuple[List[str], int]:
         """Creates a Desktop() object if we don't already have one and starts the container + noVNC server.
         
         Args:
             logs: Optional list to append log messages to
+            isLocal: Whether to start the container in local mode (if you want the agent to run locally on your computer. MacOS only supported right now)
+            host: Optional host to use for the container
             
         Returns:
             Tuple containing logs and the noVNC port
@@ -162,7 +164,7 @@ class SpongecakeServer:
         
         try:
             # 1) Start the Spongecake Desktop container
-            self.desktop = Desktop(name=Config.CONTAINER_NAME, host=host if host != '' else None)
+            self.desktop = Desktop(name=Config.CONTAINER_NAME, host=host if host != '' else None, isLocal = isLocal)
             container = self.desktop.start()
             logs.append(f"🍰 Container started: {container}")
             logger.info(f"🍰 Container started: {container}")
@@ -320,7 +322,8 @@ class SpongecakeServer:
         """
         data = request.get_json()
         host = data.get("host", "")
-        logs, port = self.start_container_if_needed(host)
+        isLocal = data.get("isLocal", False)
+        logs, port = self.start_container_if_needed(host = host, isLocal = isLocal)
         return jsonify({
             "logs": logs,
             "novncPort": port
