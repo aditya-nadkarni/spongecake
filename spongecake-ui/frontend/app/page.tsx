@@ -17,7 +17,7 @@ export default function Home() {
   const [logs, setLogs] = useState<string[]>([]);
   const [containerLoading, setContainerLoading] = useState(false);
   const [novncPort, setNovncPort] = useState<number>(6080); // Default port, will be updated
-  const [host, setHost] = useState("");
+  const [isLocal, setIsLocal] = useState(false);
   const [showInstructionsGif, setShowInstructionsGif] = useState(true);
 
 // useEffect to check for local parameter on the URL. Used for when a new window is opened after hitting 'Run locally' 
@@ -25,19 +25,22 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const isLocal = params.get("isLocal");
     if (isLocal === "true") {
-      setHost("local");
+      setIsLocal(true);
     }
   }, []);
 
 
-  const handleStartContainer = async (host: string = "") => {
+  const handleStartContainer = async ({isLocal = false } : {isLocal?: boolean} = {}) => {
     try {
-      if(host != 'local') {
+      if(isLocal == false) {
         setContainerLoading(true);
+        setIsLocal(false);
+      } else if (isLocal == true) {
+        setIsLocal(true);
       }
       const resp = await fetch(`${API_BASE_URL}/api/start-container`, {
         method: "POST",
-        body: JSON.stringify({ host }),
+        body: JSON.stringify({ host: isLocal ? 'local' : '' }),
         headers: {
           "Content-Type": "application/json",
         },
@@ -51,28 +54,21 @@ export default function Home() {
         setNovncPort(data.novncPort);
       }
 
-      if(host != 'local') {
-        await new Promise(resolve => setTimeout(resolve, 3500));
+      if(isLocal == false) {
+        await new Promise(resolve => setTimeout(resolve, 4000)); // Add delay to give container and VNC server time to start
         setContainerStarted(true);
         setVncShown(true);
-      } else {
+        setLogs(data.logs || []);
+        setContainerLoading(false);
+      } else if (isLocal == true) {
         // Host is local, and we open up a window with the ?isLocal parameter set to true. This will open a chat window and show the local instructions video
         const firstWindow = window.open(
           "http://localhost:3000/?isLocal=true",
           "_blank",
           `width=${Math.floor(window.screen.width * 0.33)},height=${window.screen.height},left=0,top=0,menubar=no,toolbar=no,location=no,resizable=no`
       );
-      if (firstWindow) {
-        firstWindow.focus();
-      } else {
-        console.warn("Window was blocked or failed to open.");
+        if (firstWindow) { firstWindow.focus(); } else { console.warn("Window was blocked or failed to open."); }
       }
-      return
-      }
-      // Wait for 2 seconds before showing the VNC viewer
-      setLogs(data.logs || []);
-      setContainerLoading(false);
-      setHost(host);
     } catch (error) {
         if (error instanceof TypeError && error.message === "Failed to fetch") {
           alert("Failed to fetch. Please make sure the server is running.");
@@ -88,12 +84,12 @@ export default function Home() {
       <MyRuntimeProvider>
         <main className="px-4 py-4 flex-col gap-3 flex items-center">
         <img src={Logo.src} alt="Spongecake Logo" width={300} />
-        {!containerStarted && host == '' && (
+        {!containerStarted && isLocal == false && (
           <div className="flex flex-row gap-2">
           <Button
             disabled={containerLoading}
             className="w-fit font-bold"
-            onClick={() => handleStartContainer('')}
+            onClick={() => handleStartContainer({ isLocal : false })}
           >
             {containerLoading ? <LoaderCircle className="animate-spin" /> : <Play className="" />} Start Docker Agent
           </Button>
@@ -101,7 +97,7 @@ export default function Home() {
             // disabled={desktopLoading}
             className="w-fit font-bold"
             variant={'outline'}
-            onClick={() => handleStartContainer('local')}
+            onClick={() => handleStartContainer({ isLocal: true })}
           >
             <LaptopMinimal />    
             <span className="flex flex-row gap-1 items-center">  
@@ -110,17 +106,7 @@ export default function Home() {
           </Button>
           </div>
         )}
-        {/* View Logs */}
-        {/* {logs.length > 0 && (
-              <div>
-                <h3 className="font-bold">Logs:</h3>
-                <div className="text-sm">
-                  {logs.map((line, idx) => (
-                    <div key={idx}>{line}</div>
-                  ))}
-                </div>
-              </div>
-            )}  */}
+       
         {containerStarted && vncShown && (
 
           <div className="grid grid-cols-3 gap-4 border w-full rounded p-2">
@@ -146,7 +132,7 @@ export default function Home() {
           </div>
         )}
         {/* Local mode - this will just show a chat window which will execute agent on local machine with no container */}
-        {host === 'local' && (
+        {isLocal == true && (
           <div className="flex flex-col gap-3">
             {showInstructionsGif && (
             <div className="flex text-yellow-900 flex-col gap-3 bg-yellow-100 w-fit max-w-[600px] self-center p-3 rounded-lg">
