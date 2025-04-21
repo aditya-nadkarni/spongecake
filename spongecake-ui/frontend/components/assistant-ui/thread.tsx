@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/config";
 import { sessionManager } from "./MyRuntimeProvider";
 import { useSession } from "./SessionContext";
@@ -100,7 +100,7 @@ const handleWebpageOpen = (url: string) => {
     const browserWindow = window.open(
       url,
       "_blank",
-      `width=${Math.floor(window.screen.width * 0.5)},height=${window.screen.height},left=${Math.floor(window.screen.width * 0.5)}`
+      `width=${Math.floor(window.screen.width * 0.66)},height=${window.screen.height},left=${Math.floor(window.screen.width * 0.66)}`
     );
     if (browserWindow) {
       browserWindow.focus();

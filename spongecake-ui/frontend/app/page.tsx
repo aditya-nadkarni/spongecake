@@ -60,7 +60,7 @@ export default function Home() {
         const firstWindow = window.open(
           "http://localhost:3000/?isLocal=true",
           "_blank",
-          `width=${Math.floor(window.screen.width * 0.5)},height=${window.screen.height},left=0,top=0,menubar=no,toolbar=no,location=no,resizable=no`
+          `width=${Math.floor(window.screen.width * 0.33)},height=${window.screen.height},left=0,top=0,menubar=no,toolbar=no,location=no,resizable=no`
       );
       if (firstWindow) {
         firstWindow.focus();
@@ -153,7 +153,7 @@ export default function Home() {
               <div className="flex w-[100%] flex-row justify-between gap-1">
                 <div className="flex flex-row gap-1"> 
                   <Lightbulb className="w-5 mr-1"/> 
-                  <strong>Important: </strong>Position your windows like this on your Mac:
+                  <strong>Important: </strong>Position your windows like this on your Mac and unplug any external monitors:
                 </div>
                 <div onClick={() => setShowInstructionsGif(false)} className="cursor-pointer flex r-0 self-end"><XIcon className="w-5 mr-1"/></div>
               </div>
