@@ -262,7 +262,7 @@ class SpongecakeServer:
         try:
             # Create a wrapper for desktop.action that checks the stop_event
             def run_with_cancellation_check():
-                context = launch_cursor_overlay() if self.desktop.host == 'local' else DockerContext()
+                context = launch_cursor_overlay() if self.desktop.host == 'local' or self.desktop.isLocal and self.desktop.isLocal == True else DockerContext()
                 with context:
                     # Run the agent action
                     if auto_mode:
