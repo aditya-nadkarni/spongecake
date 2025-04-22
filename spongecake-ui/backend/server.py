@@ -15,14 +15,14 @@ try:
     if Version(sc_version) < Version("0.1.15"):
         print("\033[1m\033[38;5;19m" # Bold + dark blue color
             "\n********************************************************************************\n"
-            f"  Spongecake version {sc_version} is too old. Please upgrade to >= 0.1.16.\n"
+            f"  Spongecake version {sc_version} is too old. Please upgrade to >= 0.1.15.\n"
             "  Run ./setup.sh to upgrade."
             "\n********************************************************************************\n\033[0m")
         sys.exit(1)
 except PackageNotFoundError:
     print("\033[1m\033[38;5;52m"  # Bold + dark red color
             "********************************************************************************\n"
-            "Spongecake is not installed. Please install spongecake >= 0.1.16.\n"
+            "Spongecake is not installed. Please install spongecake >= 0.1.15.\n"
             "Run ./setup.sh to install all dependencies.\n"
             "********************************************************************************\n\033[0m")
     sys.exit(1)
