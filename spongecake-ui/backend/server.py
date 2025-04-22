@@ -207,14 +207,14 @@ class SpongecakeServer:
         for msg in data.output:
             if hasattr(msg, "content"):
                 text_parts = [part.text for part in msg.content if hasattr(part, "text")]
-                self.result[0] = text_parts
+                self.result[0] = [{"pendingSafetyCheck": False, "messages": text_parts}] 
         
     def needs_input_handler(self, messages):
         """NEEDS_INPUT -- Get input from the user, and pass it back to `action`"""
         for msg in messages:
             if hasattr(msg, "content"):
                 text_parts = [part.text for part in msg.content if hasattr(part, "text")]
-                self.result[0] = text_parts
+                self.result[0] = [{"pendingSafetyCheck": False, "messages": text_parts}] 
 
     def needs_safety_check_handler(self, safety_checks, pending_call):
         # Check if the user has already acknowledged safety checks (set this flag in run_agent_action)
@@ -232,7 +232,7 @@ class SpongecakeServer:
     def error_handler(self, error_message):
         """ERROR -- Handle errors (just print it out in this case)"""
         print(f"😱 ERROR: {error_message}")
-        self.result[0] = None  # Just return None on error
+        self.result[0] = [{"pendingSafetyCheck": False, "messages": None}] # Just return None on error
 
     def run_agent_action(self, user_prompt: str, auto_mode: bool = False, safety_ack: bool = False, log_queue=None, stop_event=None) -> Dict[str, Any]:
         """Run the agent logic in the Spongecake Desktop (while showing the custom cursor overlay if running locally)
@@ -298,20 +298,10 @@ class SpongecakeServer:
         logs.append(log_msg)
         agent_response = self.result[0]
 
-        if (isinstance(agent_response, list) and agent_response and 
-            isinstance(agent_response[0], dict) and agent_response[0].get("pendingSafetyCheck")):
-            return {
-                "logs": logs,
-                "agent_response": json.dumps({
-                    'pendingSafetyCheck': True,
-                    'messages': ["We've spotted something that might cause the agent to behave unexpectedly! Please acknowledge this to proceed.\n\n > *Type 'ack' to acknowledge and proceed.*"]
-                })
-            }
-        else:
-            return {
-                "logs": logs,
-                "agent_response": agent_response[0]
-            }
+        return {
+            "logs": logs,
+            "agent_response": agent_response
+        }
 
 
     def api_start_container(self):

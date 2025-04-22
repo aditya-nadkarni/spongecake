@@ -77,7 +77,7 @@ export class ResponseParser {
     return (
       data.pendingSafetyCheck || 
       (data.agent_response && 
-        (typeof data.agent_response === 'object' && data.agent_response.pendingSafetyCheck) ||
+        (typeof data.agent_response === 'object' && data.agent_response[0].pendingSafetyCheck) ||
         (typeof data.agent_response === 'string' && data.agent_response.includes("pendingSafetyCheck"))
       )
     );
@@ -111,15 +111,15 @@ export class ResponseParser {
       let messages: string[] = [];
       
       // Extract messages from different safety check formats
-      if (data.pendingSafetyCheck && data.agent_response && data.agent_response.messages) {
+      if (data.agent_response && data.agent_response[0].messages && data.agent_response[0].pendingSafetyCheck) {
         // Format 1: Direct object with messages array
-        messages = data.agent_response.messages;
+        messages = ["We've spotted something that might cause the agent to behave unexpectedly! Please acknowledge this to proceed.\n"]; //data.agent_response[0].messages;
       } else if (data.agent_response && typeof data.agent_response === 'string') {
         // Format 2: JSON string that needs parsing
         try {
           const safetyCheckObject = JSON.parse(data.agent_response);
-          if (safetyCheckObject.messages) {
-            messages = safetyCheckObject.messages;
+          if (safetyCheckObject[0].messages) {
+            messages = safetyCheckObject[0].messages;
           }
         } catch (e) {
           console.error("Error parsing safety check JSON:", e);
@@ -164,8 +164,8 @@ export class ResponseParser {
       if (data.agent_response) {
         if (typeof data.agent_response === 'object') {
           // If it's an object, try to stringify it nicely
-          if (data.agent_response.messages && Array.isArray(data.agent_response.messages)) {
-            responseText = data.agent_response.messages.join("\n");
+          if (data.agent_response[0].messages && Array.isArray(data.agent_response[0].messages)) {
+            responseText = data.agent_response[0].messages.join("\n");
           } else {
             responseText = JSON.stringify(data.agent_response, null, 2);
           }
