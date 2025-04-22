@@ -1,7 +1,35 @@
+import sys
+
+try:
+    from importlib.metadata import version, PackageNotFoundError
+except ImportError:
+    from pkg_resources import get_distribution, DistributionNotFound
+    def version(pkg):
+        return get_distribution(pkg).version
+    PackageNotFoundError = DistributionNotFound
+
+from packaging.version import Version
+
+try:
+    sc_version = version("spongecake")
+    if Version(sc_version) < Version("0.1.15"):
+        print("\033[1m\033[38;5;19m" # Bold + dark blue color
+            "\n********************************************************************************\n"
+            f"  Spongecake version {sc_version} is too old. Please upgrade to >= 0.1.16.\n"
+            "  Run ./setup.sh to upgrade."
+            "\n********************************************************************************\n\033[0m")
+        sys.exit(1)
+except PackageNotFoundError:
+    print("\033[1m\033[38;5;52m"  # Bold + dark red color
+            "********************************************************************************\n"
+            "Spongecake is not installed. Please install spongecake >= 0.1.16.\n"
+            "Run ./setup.sh to install all dependencies.\n"
+            "********************************************************************************\n\033[0m")
+    sys.exit(1)
+
 import logging
 import os
 import subprocess
-import sys
 import threading
 import queue
 import time
